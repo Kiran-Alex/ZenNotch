@@ -15,13 +15,8 @@ struct BoringHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            HStack {
-                if vm.notchState == .open {
-                    headerTab("Workspace", page: .home)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 10 * notchScale)
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: 1)
 
             if vm.notchState == .open {
                 // Black block covering the physical notch area.
@@ -36,6 +31,7 @@ struct BoringHeader: View {
             HStack(spacing: 0) {
                 if vm.notchState == .open {
                     HStack(spacing: 2 * notchScale) {
+                        headerTab("Workspace", page: .home)
                         headerTab("Insights", page: .insights)
                         if Defaults[.settingsIconInNotch] {
                             Button {
@@ -51,8 +47,9 @@ struct BoringHeader: View {
                     .background(Color.white.opacity(0.08), in: Capsule())
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.leading, 10 * notchScale)
+            .padding(.trailing, 4 * notchScale)
         }
         .opacity(vm.notchState == .closed ? 0 : 1)
         .blur(radius: vm.notchState == .closed ? 20 : 0)
