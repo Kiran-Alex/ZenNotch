@@ -124,6 +124,8 @@ extension Defaults.Keys {
     static let focusDuration = Key<Int>("focusDuration", default: 45)
     /// Total focused seconds per reminder id (local only; Reminders can't store it).
     static let focusTotals = Key<[String: Int]>("focusTotals", default: [:])
+    /// Focused seconds per day ("yyyy-MM-dd"), for Insights. Kept ~60 days.
+    static let focusDaily = Key<[String: Int]>("focusDaily", default: [:])
 
     // MARK: Tasks
     /// Manual order of open tasks (reminder ids). Local only: EventKit has no API

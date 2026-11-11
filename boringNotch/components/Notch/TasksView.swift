@@ -93,10 +93,10 @@ struct TasksView: View {
                             dateNavigator.fixedSize()
                         }
                     }
-                    .padding(.horizontal, cs(isNarrow ? 12 : 16))
+                    .padding(.horizontal, cs(isNarrow ? 10 : 12))
                     .padding(.top, cs(13))
                     tabPicker
-                        .padding(.horizontal, cs(isNarrow ? 12 : 16))
+                        .padding(.horizontal, cs(isNarrow ? 10 : 12))
                         .padding(.top, cs(6))
                         .padding(.bottom, cs(2))
                 }
@@ -106,11 +106,11 @@ struct TasksView: View {
                 if tasks.hasAccess && tab == .todo {
                     // Stitched seam separating the list from the input bar.
                     StitchLine()
-                        .padding(.horizontal, cs(compact ? 14 : (isNarrow ? 12 : 18)))
+                        .padding(.horizontal, cs(compact ? 12 : (isNarrow ? 10 : 13)))
                         .padding(.top, cs(compact ? 3 : 4))
                         .padding(.bottom, cs(compact ? 5 : 7))
                     addBar(compact: compact)
-                        .padding(.horizontal, cs(compact ? 10 : 12))
+                        .padding(.horizontal, cs(compact ? 8 : 9))
                         .padding(.bottom, cs(compact ? 7 : 9))
                 }
             }
@@ -207,7 +207,7 @@ struct TasksView: View {
     @ViewBuilder
     private func title(compact: Bool) -> some View {
         let text = Text(headerTitle)
-            .font(.system(size: cs(compact || isNarrow ? 14.5 : 15.5), weight: .semibold))
+            .font(.system(size: cs(CardType.title), weight: .semibold))
             .lineLimit(1)
         // Shrink a little rather than push the date controls off the card.
         text.minimumScaleFactor(0.75).layoutPriority(1)
@@ -223,7 +223,7 @@ struct TasksView: View {
 
     private var dateNavigator: some View {
         HStack(spacing: cs(4)) {
-            iconButton("chevron.left", label: "Previous day") { tasks.shiftDay(by: -1) }
+            iconButton("chevron.left", label: "Previous day", size: 11, box: 16, weight: .semibold) { tasks.shiftDay(by: -1) }
             Button {
                 if showMonthPicker || dueDateTarget != nil {
                     closeMonthPicker()
@@ -232,20 +232,21 @@ struct TasksView: View {
                     withAnimation(.smooth(duration: 0.2)) { showMonthPicker = true }
                 }
             } label: {
-                HStack(spacing: cs(5)) {
+                HStack(spacing: cs(4)) {
                     Image(systemName: "calendar")
+                        .font(.system(size: cs(10), weight: .medium))
                     Text(tasks.selectedDate.formatted(.dateTime.day().month(.abbreviated)))
                 }
-                .font(.system(size: cs(12), weight: .medium))
-                .padding(.horizontal, cs(8))
-                .padding(.vertical, cs(4))
+                .font(.system(size: cs(11), weight: .medium))
+                .padding(.horizontal, cs(7))
+                .padding(.vertical, cs(3.5))
                 .background(Color.black.opacity(showMonthPicker ? 0.13 : 0.07),
-                            in: RoundedRectangle(cornerRadius: cs(7), style: .continuous))
+                            in: RoundedRectangle(cornerRadius: cs(6), style: .continuous))
             }
             .buttonStyle(.plain)
             .help("Pick a day")
             .accessibilityLabel("Selected day \(tasks.selectedDate.formatted(date: .complete, time: .omitted)). Pick a day")
-            iconButton("chevron.right", label: "Next day") { tasks.shiftDay(by: 1) }
+            iconButton("chevron.right", label: "Next day", size: 11, box: 16, weight: .semibold) { tasks.shiftDay(by: 1) }
         }
     }
 
@@ -254,8 +255,8 @@ struct TasksView: View {
             tabChip("To do", count: tasks.todo.count, value: .todo)
             tabChip("Completed", count: tasks.completed.count, value: .completed)
         }
-        .padding(cs(3))
-        .background(Color.black.opacity(0.06), in: RoundedRectangle(cornerRadius: cs(9), style: .continuous))
+        .padding(cs(2.5))
+        .background(Color.black.opacity(0.06), in: RoundedRectangle(cornerRadius: cs(8), style: .continuous))
         .fixedSize()
     }
 
@@ -264,18 +265,18 @@ struct TasksView: View {
         return Button {
             withAnimation(.smooth(duration: 0.2)) { tab = value }
         } label: {
-            HStack(spacing: cs(5)) {
+            HStack(spacing: cs(4)) {
                 Text(label).fontWeight(selected ? .semibold : .regular)
                 Text("\(count)")
                     .foregroundStyle(PaperPalette.inkSecondary)
                     .monospacedDigit()
             }
-            .font(.system(size: cs(12)))
-            .padding(.horizontal, cs(10))
-            .padding(.vertical, cs(4))
+            .font(.system(size: cs(CardType.label)))
+            .padding(.horizontal, cs(7))
+            .padding(.vertical, cs(3))
             .background {
                 if selected {
-                    RoundedRectangle(cornerRadius: cs(7), style: .continuous)
+                    RoundedRectangle(cornerRadius: cs(6), style: .continuous)
                         .fill(Color.white.opacity(0.35))
                 }
             }
@@ -370,7 +371,7 @@ struct TasksView: View {
                                 )
                         }
                     }
-                    .padding(.horizontal, cs(compact ? 14 : (isNarrow ? 12 : 18)))
+                    .padding(.horizontal, cs(compact ? 12 : (isNarrow ? 10 : 13)))
                 }
                 .coordinateSpace(name: Self.scrollSpace)
                 .onChange(of: items.map(\.id)) { _, ids in
@@ -509,7 +510,7 @@ struct TasksView: View {
     // MARK: Row
 
     private func row(_ item: TaskItem, compact: Bool) -> some View {
-        HStack(alignment: compact ? .center : .top, spacing: cs(10)) {
+        HStack(alignment: compact ? .center : .top, spacing: cs(9)) {
             CheckCircle(isOn: item.isCompleted) {
                 tasks.setCompleted(item, !item.isCompleted)
             }
@@ -533,7 +534,7 @@ struct TasksView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            HStack(spacing: cs(isNarrow ? 6 : 8)) {
+            HStack(spacing: cs(isNarrow ? 4 : 5)) {
                 if editingID == item.id {
                     iconButton("checkmark", label: "Save name", size: rowIconSize, box: rowIconBox) { finishEditing(save: true) }
                 } else {
@@ -560,13 +561,13 @@ struct TasksView: View {
         if editingID == item.id {
             TextField("Task name", text: $editingTitle)
                 .textFieldStyle(.plain)
-                .font(.system(size: cs(14)))
+                .font(.system(size: cs(CardType.body)))
                 .focused($focusedField, equals: .edit(item.id))
                 .onSubmit { finishEditing(save: true) }
                 .onExitCommand { finishEditing(save: false) }
         } else {
             Text(item.title)
-                .font(.system(size: cs(14)))
+                .font(.system(size: cs(CardType.body)))
                 .strikethrough(item.isCompleted, color: PaperPalette.inkSecondary)
                 .foregroundStyle(item.isCompleted ? PaperPalette.inkSecondary : PaperPalette.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -678,7 +679,7 @@ struct TasksView: View {
     private func addField(compact: Bool) -> some View {
         HStack(spacing: cs(8)) {
             Image(systemName: addedMessage == nil ? "plus" : "checkmark")
-                .font(.system(size: cs(11.5), weight: .semibold))
+                .font(.system(size: cs(10), weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
             ZStack(alignment: .leading) {
                 if newTitle.isEmpty {
@@ -714,11 +715,11 @@ struct TasksView: View {
                         .accessibilityLabel("New task")
                 }
             }
-            .font(.system(size: cs(13.5)))
+            .font(.system(size: cs(11.5)))
             Spacer(minLength: 0)
             if !compact && !isAdding && addedMessage == nil && tasks.todo.count > 1 {
                 Text("Drag to reorder")
-                    .font(.system(size: cs(11)))
+                    .font(.system(size: cs(9.5)))
                     .foregroundStyle(PaperPalette.inkSecondary)
                     .transition(.opacity)
             }
@@ -997,14 +998,15 @@ struct TasksView: View {
     // MARK: Helpers
 
     /// Icon size for the ▶ ✎ ··· buttons on a task row (all drawn the same size).
-    private let rowIconSize: CGFloat = 10.5
-    private let rowIconBox: CGFloat = 15
+    private let rowIconSize: CGFloat = 8.5
+    private let rowIconBox: CGFloat = 12
 
     private func iconButton(_ systemName: String, label: String, size: CGFloat = 12, box: CGFloat = 17,
+                            weight: Font.Weight = .semibold,
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: cs(size), weight: .semibold))
+                .font(.system(size: cs(size), weight: weight))
                 .frame(width: cs(box), height: cs(box))
                 .contentShape(Rectangle())
         }
@@ -1204,7 +1206,7 @@ struct CheckCircle: View {
     private func cs(_ value: CGFloat) -> CGFloat { value * cardUIScale * notchScale }
     let isOn: Bool
     var tint: Color = PaperPalette.sage
-    var size: CGFloat = 19.5
+    var size: CGFloat = 16
     let action: () -> Void
     @State private var pressed = false
 
@@ -1259,7 +1261,7 @@ private struct TaskMeta: View {
                     .foregroundStyle(part.warning ? Color(red: 0.62, green: 0.16, blue: 0.12) : PaperPalette.inkSecondary)
                 }
             }
-            .font(.system(size: cs(11)))
+            .font(.system(size: cs(10)))
         }
     }
 

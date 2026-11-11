@@ -91,6 +91,8 @@
 		26A885A939E5A959047DD317 /* EventsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6794A81359ACB6631F3E229 /* EventsCardView.swift */; };
 		73882ED4B8EE1BCE925A2D72 /* FocusTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411E5CE0717FEEAF6EA5E22D /* FocusTimerManager.swift */; };
 		648EA734E484D8600A40E0C8 /* NotesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCA221309C519F61376348D /* NotesManager.swift */; };
+		EEFDB174FDAC00DBD8E12403 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5D8ECC9862666A52FAFF28 /* InsightsView.swift */; };
+		976AAE75868B1A7C0365DB74 /* InsightsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A692DE463A2C19143BED2A /* InsightsManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -189,6 +191,8 @@
 		E6794A81359ACB6631F3E229 /* EventsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsCardView.swift; sourceTree = "<group>"; };
 		411E5CE0717FEEAF6EA5E22D /* FocusTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusTimerManager.swift; sourceTree = "<group>"; };
 		DDCA221309C519F61376348D /* NotesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesManager.swift; sourceTree = "<group>"; };
+		7F5D8ECC9862666A52FAFF28 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
+		93A692DE463A2C19143BED2A /* InsightsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -282,6 +286,7 @@
 				2CDE736A198F04BC79BEFAAC /* TasksManager.swift */,
 				411E5CE0717FEEAF6EA5E22D /* FocusTimerManager.swift */,
 				DDCA221309C519F61376348D /* NotesManager.swift */,
+				93A692DE463A2C19143BED2A /* InsightsManager.swift */,
 			);
 			path = managers;
 			sourceTree = "<group>";
@@ -441,6 +446,7 @@
 				48AB80C7A66088D866B3CEDF /* FocusTimerView.swift */,
 				5077A3ABD99B2DCB39B1246F /* NotepadView.swift */,
 				E6794A81359ACB6631F3E229 /* EventsCardView.swift */,
+				7F5D8ECC9862666A52FAFF28 /* InsightsView.swift */,
 			);
 			path = Notch;
 			sourceTree = "<group>";
@@ -581,6 +587,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				976AAE75868B1A7C0365DB74 /* InsightsManager.swift in Sources */,
+				EEFDB174FDAC00DBD8E12403 /* InsightsView.swift in Sources */,
 				648EA734E484D8600A40E0C8 /* NotesManager.swift in Sources */,
 				73882ED4B8EE1BCE925A2D72 /* FocusTimerManager.swift in Sources */,
 				26A885A939E5A959047DD317 /* EventsCardView.swift in Sources */,

@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Dev aid: build, launch, and have the app render only its open notch to a PNG.
-# Usage: ./scripts/snap-notch.sh [output.png]   (default: /tmp/zennotch-notch.png)
+# Usage: ./scripts/snap-notch.sh [output.png] [page]   (page: home | insights)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,7 +18,7 @@ APP="$PRODUCTS_DIR/Boring Notch.app"
 TMPDIR_APP="$HOME/Library/Containers/site.kiranalex.zennotch/Data/tmp"
 mkdir -p "$TMPDIR_APP"
 rm -f "$TMPDIR_APP/notch-snapshot.png"
-touch "$TMPDIR_APP/debug-snapshot"
+printf '%s' "${2:-home}" > "$TMPDIR_APP/debug-snapshot"
 
 pkill -x "Boring Notch" 2>/dev/null && sleep 0.5 || true
 open "$APP"

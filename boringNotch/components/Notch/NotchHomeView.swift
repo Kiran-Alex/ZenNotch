@@ -28,7 +28,12 @@ struct NotchHomeView: View {
     private var mainContent: some View {
         // Tasks, focus timer, notepad and events side by side (Settings > Appearance
         // turns cards on/off; dragging a card's top handle reorders them).
-        NotchCardsView()
+        Group {
+            switch coordinator.currentView {
+            case .home: NotchCardsView()
+            case .insights: InsightsView()
+            }
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Cards sit ~6pt from the notch's edge (the open notch pads its content 12pt).
             .padding(.horizontal, -6)

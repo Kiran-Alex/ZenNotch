@@ -22,9 +22,9 @@ struct EventsCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: cs(6)) {
                 Image(systemName: "calendar")
-                    .font(.system(size: cs(12.5), weight: .semibold))
+                    .font(.system(size: cs(CardType.titleIcon), weight: .semibold))
                 Text("Events")
-                    .font(.system(size: cs(16), weight: .semibold))
+                    .font(.system(size: cs(CardType.title), weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: cs(4))
                 moreMenu
@@ -119,7 +119,7 @@ struct EventsCardView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: cs(10.5), weight: .semibold))
+            .font(.system(size: cs(CardType.label), weight: .semibold))
             .kerning(0.4)
             .foregroundStyle(PaperPalette.inkSecondary)
     }
@@ -131,7 +131,7 @@ struct EventsCardView: View {
                 .frame(width: cs(3))
             VStack(alignment: .leading, spacing: cs(2)) {
                 Text(event.title)
-                    .font(.system(size: cs(12), weight: .bold))
+                    .font(.system(size: cs(CardType.body), weight: .bold))
                     .fixedSize(horizontal: false, vertical: true)
                 Text(timeRange(event))
                     .font(.system(size: cs(11)))
@@ -156,7 +156,7 @@ struct EventsCardView: View {
         HStack(alignment: .top, spacing: cs(4)) {
             VStack(alignment: .leading, spacing: cs(2)) {
                 Text(reminder.title)
-                    .font(.system(size: cs(12), weight: .bold))
+                    .font(.system(size: cs(CardType.body), weight: .bold))
                     .fixedSize(horizontal: false, vertical: true)
                 Text(reminder.start.formatted(date: .omitted, time: .shortened))
                     .font(.system(size: cs(11)))

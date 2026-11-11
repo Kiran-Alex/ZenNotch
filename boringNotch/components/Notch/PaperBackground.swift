@@ -26,6 +26,16 @@ extension EnvironmentValues {
     }
 }
 
+/// Shared header sizes so every card's title matches ("Today's tasks", "Notepad", "Events").
+enum CardType {
+    static let title: CGFloat = 14
+    static let titleIcon: CGFloat = 11.5
+    /// Main text in every card: task titles, note text, event titles.
+    static let body: CGFloat = 12.5
+    /// Small labels: tasks' To do / Completed tabs, Events' REMINDERS heading.
+    static let label: CGFloat = 10.5
+}
+
 enum PaperPalette {
     /// Card colours from the design reference.
     static let sage = Color(red: 0.553, green: 0.690, blue: 0.592)      // tasks

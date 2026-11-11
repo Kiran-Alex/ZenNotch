@@ -23,9 +23,9 @@ struct NotepadView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: cs(6)) {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: cs(12.5), weight: .semibold))
+                    .font(.system(size: cs(CardType.titleIcon), weight: .semibold))
                 Text("Notepad")
-                    .font(.system(size: cs(16), weight: .semibold))
+                    .font(.system(size: cs(CardType.title), weight: .semibold))
                     .lineLimit(1)
             }
             .padding(.top, cs(15))
@@ -103,13 +103,13 @@ struct NotepadView: View {
         ZStack(alignment: .topLeading) {
             if notes.text.isEmpty {
                 Text("Jot something down…")
-                    .font(.system(size: cs(14)))
+                    .font(.system(size: cs(CardType.body)))
                     .foregroundStyle(PaperPalette.inkSecondary)
                     .padding(.top, cs(1))
                     .allowsHitTesting(false)
             }
             TextEditor(text: Binding(get: { notes.text }, set: { notes.text = $0 }))
-                .font(.system(size: cs(14)))
+                .font(.system(size: cs(CardType.body)))
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.never)
                 .tint(PaperPalette.ink)

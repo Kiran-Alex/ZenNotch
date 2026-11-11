@@ -196,11 +196,39 @@ final class FocusTimerManager: ObservableObject {
     private func recordSegment() {
         guard let start = segmentStart else { return }
         segmentStart = nil
-        guard let id = taskID else { return }
-        let seconds = Int(Date().timeIntervalSince(start))
+        let now = Date()
+        let seconds = Int(now.timeIntervalSince(start))
         guard seconds > 0 else { return }
+        logDaily(from: start, to: now)
+        guard let id = taskID else { return }
         totals[id, default: 0] += seconds
         Defaults[.focusTotals] = totals
+    }
+
+    /// Adds focused time to the per-day log (split at midnight), with or without a task.
+    private func logDaily(from start: Date, to end: Date) {
+        let cal = Calendar.current
+        var daily = Defaults[.focusDaily]
+        var cursor = start
+        while cursor < end {
+            let nextDay = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: cursor))!
+            let sliceEnd = min(end, nextDay)
+            daily[focusDayKey(cursor), default: 0] += Int(sliceEnd.timeIntervalSince(cursor))
+            cursor = sliceEnd
+        }
+        // Keep about two months.
+        if let cutoff = cal.date(byAdding: .day, value: -60, to: Date()) {
+            let oldest = focusDayKey(cutoff)
+            daily = daily.filter { $0.key >= oldest }
+        }
+        Defaults[.focusDaily] = daily
+    }
+
+    /// Seconds of the session running right now that aren't in the log yet.
+    var unloggedSecondsToday: Int {
+        guard phase == .running, let start = segmentStart else { return 0 }
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        return Int(Date().timeIntervalSince(max(start, todayStart)))
     }
 
     private func requestNotificationPermission() {
