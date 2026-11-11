@@ -59,7 +59,7 @@ struct BoringHeader: View {
     private func headerTab(_ title: String, page: NotchViews) -> some View {
         let selected = coordinator.currentView == page
         return Button {
-            withAnimation(.smooth(duration: 0.35)) { coordinator.currentView = page }
+            withAnimation(.smooth(duration: 0.25)) { coordinator.currentView = page }
         } label: {
             tabLabel(title, selected: selected)
         }
