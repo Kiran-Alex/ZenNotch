@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Dev aid: build, launch, and have the app render only its open notch to a PNG.
-# Usage: ./scripts/snap-notch.sh [output.png] [page]   (page: home | insights)
+# Usage: ./scripts/snap-notch.sh [output.png] [page]   (page: home | insights[:week|month|quarter|year|all] | slide0.4)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -328,7 +328,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self, let window = self.window, let view = window.contentView else { return }
                 self.vm.setKeepOpen("debugSnapshot", true)
                 self.vm.open()
-                if page == "insights" { self.coordinator.currentView = .insights }
+                if let page, page.hasPrefix("insights") {
+                    // "insights" or "insights:<range>" (week, month, quarter, year, all).
+                    self.coordinator.currentView = .insights
+                    let name = page.split(separator: ":").dropFirst().first.map(String.init)
+                    InsightsManager.shared.range = name.flatMap(InsightsRange.init(rawValue:)) ?? .week
+                }
                 if let page, page.hasPrefix("slide"), let frac = Double(page.dropFirst(5)) {
                     // e.g. "slide0.4": render the tab switch frozen 40% of the way.
                     NotchHomeView.debugFrozenPosition = frac
