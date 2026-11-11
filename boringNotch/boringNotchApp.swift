@@ -329,12 +329,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.vm.setKeepOpen("debugSnapshot", true)
                 self.vm.open()
                 if page == "insights" { self.coordinator.currentView = .insights }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                if let page, page.hasPrefix("slide"), let frac = Double(page.dropFirst(5)) {
+                    // e.g. "slide0.4": render the tab switch frozen 40% of the way.
+                    NotchHomeView.debugFrozenPosition = frac
+                    self.coordinator.currentView = .insights
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                         view.cacheDisplay(in: view.bounds, to: rep)
                         let out = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("notch-snapshot.png")
                         try? rep.representation(using: .png, properties: [:])?.write(to: out)
                     }
+                    NotchHomeView.debugFrozenPosition = nil
                     self.vm.setKeepOpen("debugSnapshot", false)
                     self.vm.close()
                 }
