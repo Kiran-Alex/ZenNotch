@@ -26,7 +26,6 @@ public enum NotchState {
 
 public enum NotchViews {
     case home
-    case shelf
 }
 
 enum SettingsEnum {
@@ -51,19 +50,9 @@ enum DownloadIconStyle: String, Defaults.Serializable {
     case iconAndAppIcon = "Icon and app icon"
 }
 
-enum MirrorShapeEnum: String, Defaults.Serializable {
-    case rectangle = "Rectangular"
-    case circle = "Circular"
-}
 
 enum WindowHeightMode: String, Defaults.Serializable {
     case matchMenuBar = "Match menubar height"
     case matchRealNotchSize = "Match real notch height"
     case custom = "Custom height"
-}
-
-enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
-    case white = "White"
-    case albumArt = "Match album art"
-    case accent = "Accent color"
 }

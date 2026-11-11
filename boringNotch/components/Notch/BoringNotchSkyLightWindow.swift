@@ -109,6 +109,23 @@ class BoringNotchSkyLightWindow: NSPanel {
     
     private var observers: Set<AnyCancellable> = []
     
-    override var canBecomeKey: Bool { false }
+    /// The notch normally never takes keyboard focus, so clicking it doesn't steal
+    /// typing from the user's app. Text entry (adding a task, writing a note…)
+    /// turns it on while at least one card holds a focus "owner".
+    private var keyboardFocusOwners: Set<String> = []
+    var allowsKeyboardFocus: Bool { !keyboardFocusOwners.isEmpty }
+    override var canBecomeKey: Bool { allowsKeyboardFocus }
     override var canBecomeMain: Bool { false }
+
+    func beginKeyboardFocus(owner: String) {
+        keyboardFocusOwners.insert(owner)
+        makeKey()
+    }
+
+    /// Hands the keyboard back only when no other card still needs it, so moving
+    /// from one text field to another (e.g. tasks → notepad) doesn't drop focus.
+    func endKeyboardFocus(owner: String) {
+        keyboardFocusOwners.remove(owner)
+        if keyboardFocusOwners.isEmpty, isKeyWindow { resignKey() }
+    }
 }

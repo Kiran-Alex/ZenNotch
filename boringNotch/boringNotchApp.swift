@@ -56,7 +56,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     let vm: BoringViewModel = .init()
     @ObservedObject var coordinator = BoringViewCoordinator.shared
-    var quickShareService = QuickShareService.shared
     var whatsNewWindow: NSWindow?
     var timer: Timer?
     var closeNotchTask: Task<Void, Never>?
@@ -66,7 +65,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
     private var windowScreenDidChangeObserver: Any?
-    private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -82,10 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DistributedNotificationCenter.default().removeObserver(observer)
             screenUnlockedObserver = nil
         }
-        MusicManager.shared.destroy()
-        cleanupDragDetectors()
         cleanupWindows()
-        XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
     }
 
     @MainActor
@@ -165,72 +160,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func cleanupDragDetectors() {
-        dragDetectors.values.forEach { detector in
-            detector.stopMonitoring()
-        }
-        dragDetectors.removeAll()
-    }
-
-    private func setupDragDetectors() {
-        cleanupDragDetectors()
-
-        guard Defaults[.expandedDragDetection] else { return }
-
-        if Defaults[.showOnAllDisplays] {
-            for screen in NSScreen.screens {
-                setupDragDetectorForScreen(screen)
-            }
-        } else {
-            let preferredScreen: NSScreen? = window?.screen
-                ?? NSScreen.screen(withUUID: coordinator.selectedScreenUUID)
-                ?? NSScreen.main
-
-            if let screen = preferredScreen {
-                setupDragDetectorForScreen(screen)
-            }
-        }
-    }
-
-    private func setupDragDetectorForScreen(_ screen: NSScreen) {
-        guard let uuid = screen.displayUUID else { return }
-        
-        let screenFrame = screen.frame
-        let notchHeight = openNotchSize.height
-        let notchWidth = openNotchSize.width
-        
-        // Create notch region at the top-center of the screen where an open notch would occupy
-        let notchRegion = CGRect(
-            x: screenFrame.midX - notchWidth / 2,
-            y: screenFrame.maxY - notchHeight,
-            width: notchWidth,
-            height: notchHeight
-        )
-        
-        let detector = DragDetector(notchRegion: notchRegion)
-        
-        detector.onDragEntersNotchRegion = { [weak self] in
-            Task { @MainActor in
-                self?.handleDragEntersNotchRegion(onScreen: screen)
-            }
-        }
-        
-        dragDetectors[uuid] = detector
-        detector.startMonitoring()
-    }
-
-    private func handleDragEntersNotchRegion(onScreen screen: NSScreen) {
-        guard let uuid = screen.displayUUID else { return }
-        
-        if Defaults[.showOnAllDisplays], let viewModel = viewModels[uuid] {
-            viewModel.open()
-            coordinator.currentView = .shelf
-        } else if !Defaults[.showOnAllDisplays], let windowScreen = window?.screen, screen == windowScreen {
-            vm.open()
-            coordinator.currentView = .shelf
-        }
-    }
-
     private func createBoringNotchWindow(for screen: NSScreen, with viewModel: BoringViewModel) -> NSWindow {
         let rect = NSRect(x: 0, y: 0, width: windowSize.width, height: windowSize.height)
         let styleMask: NSWindow.StyleMask = [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow]
@@ -251,16 +180,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
-
-        // Observe when the window's screen changes so we can update drag detectors
-        windowScreenDidChangeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeScreenNotification,
-            object: window,
-            queue: .main) { [weak self] _ in
-                Task { @MainActor in
-                    self?.setupDragDetectors()
-                }
-        }
         return window
     }
 
@@ -293,7 +212,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.adjustWindowPosition(changeAlpha: true)
-                self?.setupDragDetectors()
             }
         }
 
@@ -302,7 +220,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.adjustWindowPosition()
-                self?.setupDragDetectors()
             }
         }
 
@@ -322,15 +239,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 self.cleanupWindows(shouldInvert: true)
                 self.adjustWindowPosition(changeAlpha: true)
-                self.setupDragDetectors()
-            }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name.expandedDragDetectionChanged, object: nil, queue: nil
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.setupDragDetectors()
             }
         }
 
@@ -349,20 +257,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { @MainActor in
                     self?.onScreenUnlocked(notification)
                 }
-        }
-
-        KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
-            guard let self = self else { return }
-            if Defaults[.sneakPeekStyles] == .inline {
-                let newStatus = !self.coordinator.expandingView.show
-                self.coordinator.toggleExpandingView(status: newStatus, type: .music)
-            } else {
-                self.coordinator.toggleSneakPeek(
-                    status: !self.coordinator.sneakPeek.show,
-                    type: .music,
-                    duration: 3.0
-                )
-            }
         }
 
         KeyboardShortcuts.onKeyDown(for: .toggleNotchOpen) { [weak self] in
@@ -420,19 +314,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             adjustWindowPosition(changeAlpha: true)
         }
 
-        setupDragDetectors()
+
+        #if DEBUG
+        // Dev aid: if `<sandbox tmp>/debug-snapshot` exists, open the notch, render only
+        // the notch window to `<sandbox tmp>/notch-snapshot.png`, then close it again.
+        // Lets layout be checked without screenshotting the rest of the screen.
+        let flag = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("debug-snapshot")
+        if FileManager.default.fileExists(atPath: flag.path) {
+            try? FileManager.default.removeItem(at: flag)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, let window = self.window, let view = window.contentView else { return }
+                self.vm.setKeepOpen("debugSnapshot", true)
+                self.vm.open()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                        view.cacheDisplay(in: view.bounds, to: rep)
+                        let out = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("notch-snapshot.png")
+                        try? rep.representation(using: .png, properties: [:])?.write(to: out)
+                    }
+                    self.vm.setKeepOpen("debugSnapshot", false)
+                    self.vm.close()
+                }
+            }
+        }
+        #endif
 
         if coordinator.firstLaunch {
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
             }
             playWelcomeSound()
-        } else if MusicManager.shared.isNowPlayingDeprecated
-            && Defaults[.mediaController] == .nowPlaying
-        {
-            DispatchQueue.main.async {
-                self.showOnboardingWindow(step: .musicPermission)
-            }
         }
 
         previousScreens = NSScreen.screens
@@ -469,7 +380,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { [weak self] in
                 self?.cleanupWindows()
                 self?.adjustWindowPosition()
-                self?.setupDragDetectors()
             }
         }
     }
@@ -585,6 +495,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 ))
             window.isRestorable = false
+            window.level = .floating
+            window.hidesOnDeactivate = false
             window.identifier = NSUserInterfaceItemIdentifier("OnboardingWindow")
 
             onboardingWindowController = NSWindowController(window: window)
@@ -602,7 +514,6 @@ extension Notification.Name {
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
-    static let expandedDragDetectionChanged = Notification.Name("expandedDragDetectionChanged")
 }
 
 extension CGRect: @retroactive Hashable {

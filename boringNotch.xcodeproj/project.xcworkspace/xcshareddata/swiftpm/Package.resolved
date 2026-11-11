@@ -1,15 +1,6 @@
 {
-  "originHash" : "ab961f5de25797b1a82bd0f8c39b561332a3dfe10de0a118e1252262fbd45864",
+  "originHash" : "5b80766ba7d6bf8cbe50611faf9080941f1bb59413d325f76c420e609901bb06",
   "pins" : [
-    {
-      "identity" : "asyncxpcconnection",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ChimeHQ/AsyncXPCConnection",
-      "state" : {
-        "revision" : "da31dbcaa1b57949e46dcc19360b17d1a8de06bd",
-        "version" : "1.3.0"
-      }
-    },
     {
       "identity" : "defaults",
       "kind" : "remoteSourceControl",
@@ -35,15 +26,6 @@
       "state" : {
         "revision" : "a04ec1c363be3627734f6dad757d82f5d4fa8fcc",
         "version" : "1.1.0"
-      }
-    },
-    {
-      "identity" : "lottie-spm",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/airbnb/lottie-spm.git",
-      "state" : {
-        "revision" : "04f2fd18cc9404a0a0917265a449002674f24ec9",
-        "version" : "4.5.2"
       }
     },
     {

@@ -13,8 +13,29 @@ let downloadSneakSize: CGSize = .init(width: 65, height: 1)
 let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 let shadowPadding: CGFloat = 20
-let openNotchSize: CGSize = .init(width: 640, height: 190)
-let windowSize: CGSize = .init(width: openNotchSize.width, height: openNotchSize.height + shadowPadding)
+/// Open notch size at full scale (screens 1470pt wide or more, e.g. a default 13" Air).
+let baseOpenNotchSize: CGSize = .init(width: 680, height: 345)
+/// The window always fits the full-size notch; smaller screens draw a smaller notch inside it.
+let windowSize: CGSize = .init(width: baseOpenNotchSize.width, height: baseOpenNotchSize.height + shadowPadding)
+
+/// Screen width at which the notch is drawn at full size.
+let notchReferenceScreenWidth: CGFloat = 1470
+
+/// Scale for the open notch and everything in it (text, icons, spacing) on this
+/// screen: narrower screens (or "Larger Text" display settings) get a smaller
+/// notch, so it looks physically the same as on a default-scaled MacBook Air.
+/// Never larger than full size, never below 80% (keeps text readable).
+@MainActor func notchScale(screenUUID: String? = nil) -> CGFloat {
+    let screen = screenUUID.flatMap { NSScreen.screen(withUUID: $0) } ?? NSScreen.main
+    guard let width = screen?.frame.width, width > 0 else { return 1 }
+    return min(1, max(0.8, width / notchReferenceScreenWidth))
+}
+
+@MainActor func getOpenNotchSize(screenUUID: String? = nil) -> CGSize {
+    let scale = notchScale(screenUUID: screenUUID)
+    return CGSize(width: (baseOpenNotchSize.width * scale).rounded(),
+                  height: (baseOpenNotchSize.height * scale).rounded())
+}
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 
 enum MusicPlayerImageSizes {

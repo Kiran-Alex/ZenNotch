@@ -30,6 +30,9 @@ class CalendarManager: ObservableObject {
 
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
+        // Read the real status up front so Settings doesn't flash "denied" while it loads.
+        self.calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        self.reminderAuthorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
         setupEventStoreChangedObserver()
         Task {
             await reloadCalendarAndReminderLists()
