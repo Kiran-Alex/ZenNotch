@@ -10,6 +10,7 @@ import SwiftUI
 
 struct InsightsView: View {
     @ObservedObject private var insights = InsightsManager.shared
+    @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @Environment(\.notchScale) private var notchScale
 
     enum Metric { case tasks, focus }
@@ -34,6 +35,9 @@ struct InsightsView: View {
         .foregroundStyle(PaperPalette.ink)
         .environment(\.colorScheme, .light)
         .onAppear { insights.reload() }
+        .onChange(of: coordinator.currentView) { _, view in
+            if view == .insights { insights.reload() }
+        }
     }
 
     // MARK: Summary card
