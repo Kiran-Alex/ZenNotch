@@ -196,6 +196,31 @@ class CalendarManager: ObservableObject {
         self.events = eventsResult
     }
     
+    /// Start-of-day dates (in the window from `updateBusyDays`) that have at least one
+    /// calendar event or open timed reminder. Drives the dots under the week strip.
+    @Published var busyDays: Set<Date> = []
+
+    func updateBusyDays(from start: Date, days: Int) async {
+        let cal = Calendar.current
+        let windowStart = cal.startOfDay(for: start)
+        guard let windowEnd = cal.date(byAdding: .day, value: days, to: windowStart) else { return }
+        let items = await calendarService.events(
+            from: windowStart, to: windowEnd, calendars: selectedCalendars.map { $0.id })
+        var result = Set<Date>()
+        for item in items {
+            if case .reminder(let completed) = item.type, completed || item.isAllDay { continue }
+            // Multi-day events mark every day they cover (end is exclusive).
+            let last = item.end > item.start ? item.end.addingTimeInterval(-1) : item.start
+            var day = cal.startOfDay(for: max(item.start, windowStart))
+            while day < windowEnd && day <= last {
+                result.insert(day)
+                guard let next = cal.date(byAdding: .day, value: 1, to: day) else { break }
+                day = next
+            }
+        }
+        busyDays = result
+    }
+
     func setReminderCompleted(reminderID: String, completed: Bool) async {
         await calendarService.setReminderCompleted(reminderID: reminderID, completed: completed)
         // Refresh events after updating

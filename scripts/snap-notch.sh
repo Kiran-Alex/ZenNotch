@@ -13,14 +13,18 @@ xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Deb
 
 PRODUCTS_DIR=$(xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Debug \
   -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-APP="$PRODUCTS_DIR/Boring Notch.app"
+PRODUCT=$(xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration ${CONFIG:-Debug} \
+  -showBuildSettings 2>/dev/null | awk -F' = ' '/^ *PRODUCT_NAME /{print $2; exit}')
+APP="$PRODUCTS_DIR/$PRODUCT.app"
 
 TMPDIR_APP="$HOME/Library/Containers/site.kiranalex.zennotch/Data/tmp"
 mkdir -p "$TMPDIR_APP"
 rm -f "$TMPDIR_APP/notch-snapshot.png"
 printf '%s' "${2:-home}" > "$TMPDIR_APP/debug-snapshot"
 
-pkill -x "Boring Notch" 2>/dev/null && sleep 0.5 || true
+pkill -x "$PRODUCT" 2>/dev/null || true
+pkill -x "Boring Notch" 2>/dev/null || true   # a copy left over from before the rename
+sleep 0.5
 open "$APP"
 
 # The app renders only its notch window (nothing else on screen) and closes it again.

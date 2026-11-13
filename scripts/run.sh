@@ -27,10 +27,14 @@ fi
 
 PRODUCTS_DIR=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" \
   -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-APP="$PRODUCTS_DIR/Boring Notch.app"
+PRODUCT=$(xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration ${CONFIG:-Debug} \
+  -showBuildSettings 2>/dev/null | awk -F' = ' '/^ *PRODUCT_NAME /{print $2; exit}')
+APP="$PRODUCTS_DIR/$PRODUCT.app"
 
 # Quit the running copy so the new build takes over.
-pkill -x "Boring Notch" 2>/dev/null && sleep 0.5 || true
+pkill -x "$PRODUCT" 2>/dev/null || true
+pkill -x "Boring Notch" 2>/dev/null || true   # a copy left over from before the rename
+sleep 0.5
 
 echo "▸ Launching $APP"
 open "$APP"

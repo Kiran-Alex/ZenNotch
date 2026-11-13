@@ -105,9 +105,6 @@ class BoringViewModel: NSObject, ObservableObject {
     }
 
     var chinHeight: CGFloat {
-        if !Defaults[.hideTitleBar] {
-            return 0
-        }
 
         guard let currentScreen = screenUUID.flatMap({ NSScreen.screen(withUUID: $0) }) else {
             return 0
@@ -150,12 +147,4 @@ class BoringViewModel: NSObject, ObservableObject {
         coordinator.currentView = .home
     }
 
-    func closeHello() {
-        Task { @MainActor in
-            withAnimation(animationLibrary.animation) {
-                coordinator.helloAnimationRunning = false
-                close()
-            }
-        }
-    }
 }

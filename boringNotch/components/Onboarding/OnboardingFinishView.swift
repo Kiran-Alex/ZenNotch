@@ -35,11 +35,6 @@ struct OnboardingFinishView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                Button(action: onOpenSettings) {
-                    Label("Customize in Settings", systemImage: "gear")
-                        .controlSize(.large)
-                }
-                .controlSize(.large)
 
                 Button("Finish", action: onFinish)
                     .buttonStyle(.borderedProminent)

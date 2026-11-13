@@ -15,7 +15,6 @@ class BoringViewCoordinator: ObservableObject {
     static let shared = BoringViewCoordinator()
 
     @Published var currentView: NotchViews = .home
-    @Published var helloAnimationRunning: Bool = false
 
     @AppStorage("firstLaunch") var firstLaunch: Bool = true
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
@@ -57,9 +56,6 @@ class BoringViewCoordinator: ObservableObject {
 
         selectedScreenUUID = preferredScreenUUID ?? NSScreen.main?.displayUUID ?? ""
 
-        Task { @MainActor in
-            helloAnimationRunning = firstLaunch
-        }
     }
 
     func showEmpty() {

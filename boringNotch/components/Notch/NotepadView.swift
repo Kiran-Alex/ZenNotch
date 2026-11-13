@@ -32,31 +32,13 @@ struct NotepadView: View {
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: cs(2)) {
-                    Button {
-                        notes.goToToday()
-                    } label: {
-                        Text(dateLabel)
-                            .font(.system(size: cs(12), weight: .medium))
-                            .foregroundStyle(PaperPalette.inkSecondary)
-                            .lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Go to today")
+                    dateButton
                     Spacer(minLength: cs(4))
                     dayButtons
                 }
                 // Not enough room: day arrows go under the date.
                 VStack(alignment: .leading, spacing: cs(2)) {
-                    Button {
-                        notes.goToToday()
-                    } label: {
-                        Text(dateLabel)
-                            .font(.system(size: cs(12), weight: .medium))
-                            .foregroundStyle(PaperPalette.inkSecondary)
-                            .lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Go to today")
+                    dateButton
                     dayButtons
                 }
             }
@@ -93,6 +75,27 @@ struct NotepadView: View {
             endEditing()
             notes.flush()
         }
+    }
+
+    /// Looks like plain text; clicking the date opens a month calendar to jump to any day.
+    private var dateButton: some View {
+        Button {
+            toggleMonthPicker()
+        } label: {
+            Text(dateLabel)
+                .font(.system(size: cs(12), weight: .medium))
+                .foregroundStyle(PaperPalette.inkSecondary)
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        .help("Pick a day")
+        .accessibilityLabel("Pick a day. Showing \(dateLabel)")
+    }
+
+    private func toggleMonthPicker() {
+        if notes.isPickerOpen { withAnimation(.smooth(duration: 0.18)) { notes.isPickerOpen = false }; return }
+        notes.pickerMonth = notes.selectedDate
+        withAnimation(.smooth(duration: 0.2)) { notes.isPickerOpen = true }
     }
 
     private var dateLabel: String {

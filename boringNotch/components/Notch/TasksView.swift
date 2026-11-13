@@ -553,7 +553,7 @@ struct TasksView: View {
         }
         .padding(.vertical, cs(compact ? 4 : 5.5))
         .contentShape(Rectangle())
-        .contextMenu { taskMenuItems(item) }
+        .contextMenu { taskMenuItems(item).environment(\.colorScheme, .dark) }
     }
 
     @ViewBuilder
@@ -576,7 +576,8 @@ struct TasksView: View {
 
     private func actionsMenu(_ item: TaskItem) -> some View {
         Menu {
-            taskMenuItems(item)
+            // The card is forced light; only the pop-up follows the dark notch.
+            taskMenuItems(item).environment(\.colorScheme, .dark)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: cs(rowIconSize + 0.5), weight: .semibold))
@@ -589,70 +590,125 @@ struct TasksView: View {
         .accessibilityLabel("More actions for \(item.title)")
     }
 
-    /// Items shared by the ··· button and right-click on a task.
+    /// Items shared by the ··· button and right-click on a task. Grouped by what
+    /// they do: act on it, plan it, remove it. Submenus show the current value.
     @ViewBuilder
     private func taskMenuItems(_ item: TaskItem) -> some View {
-            Button("Rename") { startEditing(item) }
-            if showsFocusButton && !item.isCompleted {
-                Button("Focus on this task") { focus.start(task: item) }
+        let cal = Calendar.current
+        let planned = tasks.plannedMinutes[item.id]
+
+        // Act
+        Button {
+            tasks.setCompleted(item, !item.isCompleted)
+        } label: {
+            Label(item.isCompleted ? "Mark as not done" : "Mark as done",
+                  systemImage: item.isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle")
+        }
+        if showsFocusButton && !item.isCompleted {
+            Button { focus.start(task: item) } label: {
+                Label("Start focus session", systemImage: "play.circle")
             }
-            Divider()
-            Menu("Priority") {
-                ForEach(TaskPriority.allCases.reversed()) { p in
-                    Button { tasks.setPriority(item, p) } label: {
-                        if p == item.priority { Label(p.label, systemImage: "checkmark") } else { Text(p.label) }
-                    }
-                }
+        }
+        Button { startEditing(item) } label: {
+            Label("Rename", systemImage: "pencil")
+        }
+
+        Divider()
+
+        // Plan
+        Menu {
+            menuChoice("Today", on: item.dueDay.map { cal.isDateInToday($0) } ?? false) {
+                tasks.setDueDay(item, Date())
             }
-            Menu("Due date") {
-                Button("Today") { tasks.setDueDay(item, Date()) }
-                Button("Tomorrow") {
-                    tasks.setDueDay(item, Calendar.current.date(byAdding: .day, value: 1, to: Date()))
-                }
-                Button("Next week") {
-                    tasks.setDueDay(item, Calendar.current.date(byAdding: .day, value: 7, to: Date()))
-                }
-                Button("Custom date…") { openDueDatePicker(for: item) }
+            menuChoice("Tomorrow", on: item.dueDay.map { cal.isDateInTomorrow($0) } ?? false) {
+                tasks.setDueDay(item, cal.date(byAdding: .day, value: 1, to: Date()))
+            }
+            menuChoice("Next week", on: false) {
+                tasks.setDueDay(item, cal.date(byAdding: .day, value: 7, to: Date()))
+            }
+            Button { openDueDatePicker(for: item) } label: {
+                Label("Pick a date…", systemImage: "calendar")
+            }
+            if item.dueDay != nil {
                 Divider()
-                Button("No date") { tasks.setDueDay(item, nil) }
+                Button("Clear date") { tasks.setDueDay(item, nil) }
             }
-            Menu("Duration") {
-                ForEach([15, 25, 30, 45, 60, 90, 120], id: \.self) { minutes in
-                    Button {
-                        tasks.setPlannedMinutes(item.id, minutes)
-                    } label: {
-                        if tasks.plannedMinutes[item.id] == minutes {
-                            Label(TaskDurationParser.label(minutes), systemImage: "checkmark")
-                        } else {
-                            Text(TaskDurationParser.label(minutes))
-                        }
-                    }
-                }
-                if tasks.plannedMinutes[item.id] != nil {
-                    Divider()
-                    Button("No duration") { tasks.setPlannedMinutes(item.id, nil) }
-                }
+        } label: {
+            Label(menuTitle("Due date", item.dueDay.map(dueDayLabel)), systemImage: "calendar")
+        }
+
+        Menu {
+            ForEach([9, 12, 15, 18, 21], id: \.self) { hour in
+                let on = item.dueTime.map { cal.component(.hour, from: $0) == hour && cal.component(.minute, from: $0) == 0 } ?? false
+                menuChoice(timeLabel(hour: hour), on: on) { tasks.setDueTime(item, hour: hour) }
             }
-            Menu("Time") {
-                ForEach([9, 12, 15, 18, 21], id: \.self) { hour in
-                    Button(timeLabel(hour: hour)) { tasks.setDueTime(item, hour: hour) }
-                }
-                if item.dueTime != nil {
-                    Divider()
-                    Button("Remove time") { tasks.setDueTime(item, hour: nil) }
+            if item.dueTime != nil {
+                Divider()
+                Button("Don't remind me") { tasks.setDueTime(item, hour: nil) }
+            }
+        } label: {
+            Label(menuTitle("Remind me", item.dueTime?.formatted(date: .omitted, time: .shortened)), systemImage: "bell")
+        }
+
+        Menu {
+            ForEach([15, 25, 30, 45, 60, 90, 120], id: \.self) { minutes in
+                menuChoice(TaskDurationParser.label(minutes), on: planned == minutes) {
+                    tasks.setPlannedMinutes(item.id, minutes)
                 }
             }
-            if tasks.lists.count > 1 {
-                Menu("Move to list") {
-                    ForEach(tasks.lists) { list in
-                        Button { tasks.move(item, toListID: list.id) } label: {
-                            if list.id == item.listID { Label(list.title, systemImage: "checkmark") } else { Text(list.title) }
-                        }
-                    }
-                }
+            if planned != nil {
+                Divider()
+                Button("Clear duration") { tasks.setPlannedMinutes(item.id, nil) }
             }
-            Divider()
-            Button("Delete", role: .destructive) { tasks.delete(item) }
+        } label: {
+            Label(menuTitle("Duration", planned.map(TaskDurationParser.label)), systemImage: "timer")
+        }
+
+        Menu {
+            ForEach(TaskPriority.allCases.reversed()) { p in
+                menuChoice(p.label, on: p == item.priority) { tasks.setPriority(item, p) }
+            }
+        } label: {
+            Label(menuTitle("Priority", item.priority == .none ? nil : item.priority.label), systemImage: "flag")
+        }
+
+        if tasks.lists.count > 1 {
+            Menu {
+                ForEach(tasks.lists) { list in
+                    menuChoice(list.title, on: list.id == item.listID) { tasks.move(item, toListID: list.id) }
+                }
+            } label: {
+                Label(menuTitle("List", item.listName.isEmpty ? nil : item.listName), systemImage: "list.bullet")
+            }
+        }
+
+        Divider()
+
+        // Remove
+        Button(role: .destructive) { tasks.delete(item) } label: {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
+    /// A menu row with a ✓ when it's the current value.
+    @ViewBuilder
+    private func menuChoice(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if on { Label(title, systemImage: "checkmark") } else { Text(title) }
+        }
+    }
+
+    /// "Due date · Today": the menu says what's set right now.
+    private func menuTitle(_ name: String, _ value: String?) -> String {
+        value.map { "\(name) · \($0)" } ?? name
+    }
+
+    private func dueDayLabel(_ day: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(day) { return "Today" }
+        if cal.isDateInTomorrow(day) { return "Tomorrow" }
+        if cal.isDateInYesterday(day) { return "Yesterday" }
+        return day.formatted(.dateTime.day().month(.abbreviated))
     }
 
     private func timeLabel(hour: Int) -> String {
@@ -1023,13 +1079,17 @@ struct TasksView: View {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 4
+    /// SwiftUI may hand back a width a hair narrower than the one measured (pixel
+    /// rounding). Without slack the last item then wraps at placement, spilling
+    /// past the measured height into the next row.
+    private static let tolerance: CGFloat = 1
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .infinity
         var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, widest: CGFloat = 0
         for view in subviews {
             let size = view.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
-            if x > 0, x + size.width > maxWidth {
+            if x > 0, x + size.width > maxWidth + Self.tolerance {
                 y += lineHeight + lineSpacing
                 x = 0
                 lineHeight = 0
@@ -1045,7 +1105,7 @@ struct FlowLayout: Layout {
         var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
         for view in subviews {
             let size = view.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
-            if x > bounds.minX, x + size.width > bounds.maxX {
+            if x > bounds.minX, x + size.width > bounds.maxX + Self.tolerance {
                 y += lineHeight + lineSpacing
                 x = bounds.minX
                 lineHeight = 0
@@ -1058,7 +1118,7 @@ struct FlowLayout: Layout {
 }
 
 /// Small month calendar shown from the date pill. Dots mark days with open tasks.
-private struct MonthPicker: View {
+struct MonthPicker: View {
     @Environment(\.notchScale) var notchScale
     /// Card size value scaled for the notch's design proportions and this screen.
     private func cs(_ value: CGFloat) -> CGFloat { value * cardUIScale * notchScale }
@@ -1069,6 +1129,20 @@ private struct MonthPicker: View {
     var title: String? = nil
     let onPick: (Date) -> Void
     let onToday: () -> Void
+    var tint: Color = PaperPalette.sage
+
+    init(month: Binding<Date>, selected: Date?, daysWithTasks: Set<Date>, cell: CGFloat,
+         title: String? = nil, tint: Color = PaperPalette.sage,
+         onPick: @escaping (Date) -> Void, onToday: @escaping () -> Void) {
+        self.tint = tint
+        _month = month
+        self.selected = selected
+        self.daysWithTasks = daysWithTasks
+        self.cell = cell
+        self.title = title
+        self.onPick = onPick
+        self.onToday = onToday
+    }
 
     private let cal = Calendar.current
     /// Space between day columns / rows.
@@ -1119,7 +1193,7 @@ private struct MonthPicker: View {
                 .background(Color.black.opacity(0.07), in: Capsule())
         }
         .padding(cs(12))
-        .background(PaperBackground(cornerRadius: cs(14)))
+        .background(PaperBackground(tint: tint, cornerRadius: cs(14)))
         .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
         .fixedSize()
     }
@@ -1138,7 +1212,7 @@ private struct MonthPicker: View {
                 Text("\(cal.component(.day, from: day))")
                     .font(.system(size: cell * 0.46, weight: isToday || isSelected ? .semibold : .regular))
                     .monospacedDigit()
-                    .foregroundStyle(isSelected ? PaperPalette.sage : PaperPalette.ink)
+                    .foregroundStyle(isSelected ? tint : PaperPalette.ink)
                 if hasTasks && !isSelected {
                     Circle()
                         .fill(PaperPalette.ink.opacity(0.7))

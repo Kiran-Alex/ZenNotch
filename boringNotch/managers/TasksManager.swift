@@ -125,8 +125,26 @@ final class TasksManager: ObservableObject {
 
     func requestAccess() async {
         let granted = (try? await store.requestFullAccessToReminders()) ?? false
-        authorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
-        if granted { reload() }
+        if granted {
+            // EventKit can keep reporting the old status for the rest of this run, and an
+            // existing store won't see data until it's reset. Trust the grant instead.
+            Self.grantedThisRun = true
+            store.reset()
+            authorizationStatus = .fullAccess
+            reload()
+            InsightsManager.shared.reload()
+        } else {
+            authorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
+        }
+    }
+
+    /// Set once the user grants access in this run (see `requestAccess`).
+    static private(set) var grantedThisRun = false
+
+    /// Current Reminders status, without letting a stale "not determined" undo a grant.
+    static func currentStatus() -> EKAuthorizationStatus {
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+        return grantedThisRun && status == .notDetermined ? .fullAccess : status
     }
 
     // MARK: Date navigation
@@ -150,7 +168,7 @@ final class TasksManager: ObservableObject {
 
     /// Re-reads reminders for `selectedDate`. Coalesces bursts of change notifications.
     func reload() {
-        authorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
+        authorizationStatus = Self.currentStatus()
         guard hasAccess else {
             todo = []; completed = []; lists = []; daysWithTasks = []
             return

@@ -15,6 +15,10 @@ final class NotesManager: ObservableObject {
 
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     @Published private var notes: [String: String] = [:]
+    /// Month calendar for jumping to a day. The notch draws it over the whole row,
+    /// since the notepad card alone is too narrow for a month.
+    @Published var isPickerOpen = false
+    @Published var pickerMonth = Date()
 
     private let fileURL: URL
     private var saveTask: Task<Void, Never>?
@@ -66,6 +70,18 @@ final class NotesManager: ObservableObject {
         if let next = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) {
             selectedDate = Calendar.current.startOfDay(for: next)
         }
+    }
+
+    /// Days that have a note (start of day), for the dots in the date picker.
+    var daysWithNotes: Set<Date> {
+        Set(notes.compactMap { key, text in
+            text.isEmpty ? nil : Self.keyFormatter.date(from: key).map { Calendar.current.startOfDay(for: $0) }
+        })
+    }
+
+    func go(to day: Date) {
+        flush()
+        selectedDate = Calendar.current.startOfDay(for: day)
     }
 
     func goToToday() {

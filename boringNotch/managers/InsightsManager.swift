@@ -121,7 +121,7 @@ final class InsightsManager: ObservableObject {
     private var plannedByDay: [Date: Int] = [:]
 
     private init() {
-        hasReminderAccess = EKEventStore.authorizationStatus(for: .reminder) == .fullAccess
+        hasReminderAccess = TasksManager.currentStatus() == .fullAccess
         observers.append(NotificationCenter.default.addObserver(
             forName: .EKEventStoreChanged, object: store, queue: .main
         ) { [weak self] _ in Task { @MainActor in self?.reload() } })
@@ -149,7 +149,10 @@ final class InsightsManager: ObservableObject {
     }
 
     private func load() async {
-        hasReminderAccess = EKEventStore.authorizationStatus(for: .reminder) == .fullAccess
+        let hadAccess = hasReminderAccess
+        hasReminderAccess = TasksManager.currentStatus() == .fullAccess
+        // A store created before access was granted sees nothing until it's reset.
+        if hasReminderAccess && !hadAccess { store.reset() }
         guard hasReminderAccess else {
             completedByDay = [:]
             plannedByDay = [:]

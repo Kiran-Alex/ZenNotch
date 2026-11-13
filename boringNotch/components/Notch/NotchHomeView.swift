@@ -29,7 +29,7 @@ struct NotchHomeView: View {
     private var mainContent: some View {
         // Tasks, focus timer, notepad and events side by side (Settings > Appearance
         // turns cards on/off; dragging a card's top handle reorders them).
-        // Both pages stay mounted side by side (Workspace left, Insights right,
+        // Both pages stay mounted side by side (Home left, Insights right,
         // matching the tab order) and slide as one strip. Only offsets animate,
         // so nothing re-lays out mid-switch.
         GeometryReader { geo in
@@ -54,7 +54,7 @@ struct NotchHomeView: View {
     private static let pageGap: CGFloat = 12
 
     #if DEBUG
-    /// Debug snapshots only: freeze the strip partway between pages (0 = Workspace, 1 = Insights).
+    /// Debug snapshots only: freeze the strip partway between pages (0 = Home, 1 = Insights).
     static var debugFrozenPosition: CGFloat?
     #endif
 

@@ -19,6 +19,7 @@ struct ContentView: View {
     @ObservedObject var focus = FocusTimerManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
+    @State private var clickMonitors: [Any] = []
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -38,6 +39,8 @@ struct ContentView: View {
                 : cornerRadiusInsets.closed.top
     }
 
+    @State private var borderPulse: Double = 0
+    @State private var sweepAngle: Double = 0
     private var currentNotchShape: NotchShape {
         NotchShape(
             topCornerRadius: topCornerRadius,
@@ -83,6 +86,43 @@ struct ContentView: View {
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background(.black)
                     .clipShape(currentNotchShape)
+                    .overlay {
+                        // Light sweep shown once after onboarding finishes.
+                        let comet = AngularGradient(
+                            stops: [
+                                .init(color: .clear, location: 0.0),
+                                .init(color: .clear, location: 0.6),
+                                .init(color: PaperPalette.lavender, location: 0.9),
+                                .init(color: .white, location: 1.0),
+                            ],
+                            center: .center,
+                            angle: .degrees(sweepAngle)
+                        )
+                        ZStack {
+                            currentNotchShape.stroke(comet, lineWidth: 7).blur(radius: 7)
+                            currentNotchShape.stroke(comet, lineWidth: 3)
+                        }
+                        .opacity(borderPulse)
+                        .allowsHitTesting(false)
+                    }
+                    .onChange(of: vm.notchState) { _, newState in
+                        // Hovering/opening means they found the notch: stop the comet.
+                        if newState == .open && borderPulse > 0 {
+                            withAnimation(.easeOut(duration: 0.25)) { borderPulse = 0 }
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .onboardingFinished)) { _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            sweepAngle = 0
+                            withAnimation(.easeIn(duration: 0.2)) { borderPulse = 1 }
+                            withAnimation(.linear(duration: 1.4).repeatCount(3, autoreverses: false)) {
+                                sweepAngle = 360
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                                withAnimation(.easeOut(duration: 0.4)) { borderPulse = 0 }
+                            }
+                        }
+                    }
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(.black)
@@ -115,7 +155,10 @@ struct ContentView: View {
                     .onTapGesture {
                         doOpen()
                     }
-                    .conditionalModifier(Defaults[.enableGestures]) { view in
+                    .onAppear { installClickOutsideMonitors() }
+                    .onDisappear { removeClickOutsideMonitors() }
+                    // Two-finger swipe down opens the closed notch (no setting for it).
+                    .conditionalModifier(true) { view in
                         view
                             .panGesture(direction: .down) { translation, phase in
                                 handleDownGesture(translation: translation, phase: phase)
@@ -130,10 +173,10 @@ struct ContentView: View {
                     }
                     .onChange(of: vm.isKeptOpen) { _, keptOpen in
                         // Typing/dragging finished with the pointer already outside: close now.
-                        if !keptOpen && !isHovering && vm.notchState == .open {
+                        if Defaults[.notchInteractionMode] == .hover && !keptOpen && !isHovering && vm.notchState == .open {
                             hoverTask?.cancel()
                             hoverTask = Task {
-                                try? await Task.sleep(for: .milliseconds(300))
+                                try? await Task.sleep(for: .seconds(Defaults[.closeDelay]))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
                                     if !self.isHovering && !self.vm.isKeptOpen && self.vm.notchState == .open {
@@ -183,17 +226,7 @@ struct ContentView: View {
     func NotchLayout() -> some View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
-                if coordinator.helloAnimationRunning {
-                    Spacer()
-                    HelloAnimation(onFinish: {
-                        vm.closeHello()
-                    }).frame(
-                        width: getClosedNotchSize().width,
-                        height: 80
-                    )
-                    .padding(.top, 40)
-                    Spacer()
-                } else {
+                do {
                     if showsFocusActivity {
                           FocusLiveActivity()
                        } else if vm.notchState == .closed && Defaults[.showNotHumanFace] && !vm.hideOnClosed {
@@ -282,7 +315,7 @@ struct ContentView: View {
     }
 
     private func doOpen() {
-        // Don't open during onboarding: the content is hidden and the hello animation owns the layout.
+        // Do not open during onboarding: the content is hidden until it is finished.
         if coordinator.firstLaunch { return }
         withAnimation(animationSpring) {
             vm.open()
@@ -294,7 +327,8 @@ struct ContentView: View {
     private func handleHover(_ hovering: Bool) {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
-        
+        // Tap mode: hovering never opens or closes the notch, it only drives the hover visuals.
+        let hoverControlsNotch = Defaults[.notchInteractionMode] == .hover
         if hovering {
             withAnimation(animationSpring) {
                 isHovering = true
@@ -304,8 +338,7 @@ struct ContentView: View {
                 haptics.toggle()
             }
             
-            guard vm.notchState == .closed,
-                  Defaults[.openNotchOnHover] else { return }
+            guard vm.notchState == .closed, hoverControlsNotch else { return }
             
             hoverTask = Task {
                 try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
@@ -320,7 +353,7 @@ struct ContentView: View {
             }
         } else {
             hoverTask = Task {
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(for: .seconds(Defaults[.closeDelay]))
                 guard !Task.isCancelled else { return }
                 
                 await MainActor.run {
@@ -329,12 +362,42 @@ struct ContentView: View {
                     }
                     
                     // Stay open while something needs it (typing, dragging); closes when it ends.
-                    if self.vm.notchState == .open && !self.vm.isKeptOpen {
+                    if hoverControlsNotch && self.vm.notchState == .open && !self.vm.isKeptOpen {
                         self.vm.close()
                     }
                 }
             }
         }
+    }
+    // MARK: - Tap mode: click outside closes
+    private func installClickOutsideMonitors() {
+        guard clickMonitors.isEmpty else { return }
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
+        let vm = self.vm
+        let closeIfOutside: () -> Void = {
+            guard Defaults[.notchInteractionMode] == .tap,
+                  vm.notchState == .open,
+                  !vm.isKeptOpen,
+                  !vm.isMouseHovering() else { return }
+            withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) {
+                vm.close()
+            }
+        }
+        // Clicks in other apps.
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { _ in closeIfOutside() }) {
+            clickMonitors.append(global)
+        }
+        // Clicks in our own (larger, mostly transparent) window but outside the notch.
+        if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { event in
+            closeIfOutside()
+            return event
+        }) {
+            clickMonitors.append(local)
+        }
+    }
+    private func removeClickOutsideMonitors() {
+        clickMonitors.forEach { NSEvent.removeMonitor($0) }
+        clickMonitors.removeAll()
     }
 
     // MARK: - Gesture Handling

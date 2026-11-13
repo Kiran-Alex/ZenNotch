@@ -5,12 +5,14 @@
 //  Created by Alexander on 2025-06-23.
 //
 
+import LaunchAtLogin
 import SwiftUI
 
 enum OnboardingStep {
     case welcome
     case calendarPermission
     case remindersPermission
+    case launchAtLogin
     case finished
 }
 
@@ -36,7 +38,7 @@ struct OnboardingView: View {
                 PermissionRequestView(
                     icon: Image(systemName: "calendar"),
                     title: "Enable Calendar Access",
-                    description: "Boring Notch can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
+                    description: "ZenNotch can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
                     privacyNote: "Your calendar data is only used to show your events and is never shared.",
                     onAllow: {
                         Task {
@@ -58,13 +60,34 @@ struct OnboardingView: View {
                 PermissionRequestView(
                     icon: Image(systemName: "checklist"),
                     title: "Enable Reminders Access",
-                    description: "Boring Notch can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
+                    description: "ZenNotch can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
                     privacyNote: "Your reminders data is only used to show your reminders and is never shared.",
                     onAllow: {
                         Task {
                             await requestRemindersPermission()
-                            finishPermissions()
+                            withAnimation(.easeInOut(duration: 0.6)) {
+                                step = .launchAtLogin
+                            }
                         }
+                    },
+                    onSkip: {
+                        withAnimation(.easeInOut(duration: 0.6)) {
+                            step = .launchAtLogin
+                        }
+                    }
+                )
+                .transition(.opacity)
+            case .launchAtLogin:
+                PermissionRequestView(
+                    icon: Image(systemName: "power"),
+                    title: "Open at Login",
+                    description: "ZenNotch can start by itself when you log in, so your notch is there after every restart. You can change this any time in Settings.",
+                    privacyNote: nil,
+                    allowTitle: "Open at Login",
+                    skipTitle: "Not Now",
+                    onAllow: {
+                        LaunchAtLogin.isEnabled = true
+                        finishPermissions()
                     },
                     onSkip: {
                         finishPermissions()
