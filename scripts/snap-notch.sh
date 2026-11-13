@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Dev aid: build, launch, and have the app render only its open notch to a PNG.
 # Usage: ./scripts/snap-notch.sh [output.png] [page]   (page: home | insights[:week|month|quarter|year|all] | slide0.4)
+# Page "alert" shows the closed notch with a sample due-task alert.
 # Prefix the page with "mock " (e.g. "mock home") to render fixture data instead of your own,
 # for README screenshots. Mock data is in memory only and is never saved.
 set -euo pipefail

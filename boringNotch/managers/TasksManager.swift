@@ -88,8 +88,15 @@ final class TasksManager: ObservableObject {
     @Published private(set) var plannedMinutes: [String: Int] = Defaults[.taskDurations]
     @Published private(set) var authorizationStatus: EKAuthorizationStatus
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
+    /// A timed task that just came due; the closed notch shows it as a live activity.
+    @Published private(set) var dueAlert: TaskItem?
 
     private let store = EKEventStore()
+    private var alertTimer: Timer?
+    private var alertClearTask: Task<Void, Never>?
+    private var alertScanTask: Task<Void, Never>?
+    /// "<id>@<due time>" keys already announced this run, so each due time alerts once.
+    private var announcedAlerts: Set<String> = []
     private let calendar = Calendar.current
     private var changeObserver: NSObjectProtocol?
     private var dayChangeObserver: NSObjectProtocol?
@@ -171,6 +178,7 @@ final class TasksManager: ObservableObject {
         #if DEBUG
         if DebugMock.active { return }
         #endif
+        scheduleDueAlerts()
         authorizationStatus = Self.currentStatus()
         guard hasAccess else {
             todo = []; completed = []; lists = []; daysWithTasks = []
@@ -488,6 +496,110 @@ final class TasksManager: ObservableObject {
         }
         reload()
     }
+}
+
+// MARK: - Due alerts
+
+extension TasksManager {
+    /// How long the due alert stays on the closed notch.
+    static let dueAlertDuration: Duration = .seconds(60)
+    /// If the alert would fire later than this (e.g. the Mac was asleep), it's skipped.
+    private static let dueAlertGrace: TimeInterval = 5 * 60
+    /// Id of the sample alert from `debugShowDueAlert`; it isn't in Reminders.
+    private static let debugAlertID = "debug-alert"
+
+    private func alertKey(_ item: TaskItem) -> String? {
+        guard let due = item.dueTime else { return nil }
+        return "\(item.id)@\(Int(due.timeIntervalSince1970))"
+    }
+
+    /// Finds the next timed, open task and arms a timer for its due time. Runs on every
+    /// reload, so edits, completions and syncs from other devices re-arm it.
+    func scheduleDueAlerts() {
+        alertScanTask?.cancel()
+        guard Self.currentStatus() == .fullAccess else {
+            alertTimer?.invalidate()
+            alertTimer = nil
+            dismissDueAlert()
+            return
+        }
+        alertScanTask = Task { @MainActor in
+            let now = Date()
+            let earliest = now.addingTimeInterval(-Self.dueAlertGrace)
+            let dayStart = calendar.startOfDay(for: now)
+            let end = calendar.date(byAdding: .day, value: 2, to: dayStart)!
+            let open = await fetch(store.predicateForIncompleteReminders(
+                withDueDateStarting: dayStart, ending: end, calendars: visibleCalendars()))
+            guard !Task.isCancelled else { return }
+
+            // Drop the current alert if its task was completed, deleted or rescheduled.
+            if let current = dueAlert, current.id != Self.debugAlertID,
+               !open.contains(where: { alertKey($0) == alertKey(current) }) {
+                dismissDueAlert()
+            }
+            let pending = open
+                .filter { item in
+                    guard let due = item.dueTime, let key = alertKey(item) else { return false }
+                    return due >= earliest && !announcedAlerts.contains(key)
+                }
+                .sorted { $0.dueTime! < $1.dueTime! }
+
+            alertTimer?.invalidate()
+            alertTimer = nil
+            guard let next = pending.first, let due = next.dueTime else { return }
+            if due <= now {
+                fireDueAlert(next)
+            } else {
+                // Re-scan at the due time rather than firing blindly, so the task is re-checked.
+                let timer = Timer(fire: due, interval: 0, repeats: false) { [weak self] _ in
+                    Task { @MainActor in self?.scheduleDueAlerts() }
+                }
+                RunLoop.main.add(timer, forMode: .common)
+                alertTimer = timer
+            }
+        }
+    }
+
+    private func fireDueAlert(_ item: TaskItem) {
+        guard let key = alertKey(item) else { return }
+        announcedAlerts.insert(key)
+        showDueAlert(item)
+        scheduleDueAlerts() // arm the next one
+    }
+
+    private func showDueAlert(_ item: TaskItem) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { dueAlert = item }
+        NotificationCenter.default.post(name: .taskDueAlert, object: nil)
+        NSAccessibility.post(
+            element: NSApp as Any, notification: .announcementRequested,
+            userInfo: [.announcement: "Task due: \(item.title)", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+        alertClearTask?.cancel()
+        alertClearTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.dueAlertDuration)
+            guard !Task.isCancelled else { return }
+            dismissDueAlert()
+        }
+    }
+
+    /// Hides the alert (on timeout, or once the notch is opened and the task is visible).
+    func dismissDueAlert() {
+        alertClearTask?.cancel()
+        alertClearTask = nil
+        guard dueAlert != nil else { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) { dueAlert = nil }
+    }
+
+    #if DEBUG
+    /// Dev aid: show the alert for a sample task without waiting for a due time.
+    func debugShowDueAlert() {
+        let item = TaskItem(
+            id: Self.debugAlertID, title: "Prep slides for design review", isCompleted: false,
+            completionDate: nil, priority: .high, listID: "mock", listName: "Reminders",
+            dueDay: calendar.startOfDay(for: Date()), dueTime: Date(),
+            repeatSummary: nil, location: nil)
+        showDueAlert(item)
+    }
+    #endif
 }
 
 // MARK: - Natural-language due dates

@@ -17,6 +17,7 @@ struct ContentView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var focus = FocusTimerManager.shared
+    @ObservedObject var tasks = TasksManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var clickMonitors: [Any] = []
@@ -53,7 +54,9 @@ struct ContentView: View {
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
 
-        if showsFocusActivity {
+        if showsTaskAlert {
+            chinWidth += 2 * taskAlertSideWidth + 22
+        } else if showsFocusActivity {
             chinWidth += 2 * focusActivitySideWidth + 22
         } else if vm.notchState == .closed && Defaults[.showNotHumanFace] && !vm.hideOnClosed {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
@@ -106,22 +109,21 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                     }
                     .onChange(of: vm.notchState) { _, newState in
-                        // Hovering/opening means they found the notch: stop the comet.
-                        if newState == .open && borderPulse > 0 {
-                            withAnimation(.easeOut(duration: 0.25)) { borderPulse = 0 }
+                        // Hovering/opening means they found the notch: stop the comet
+                        // and clear any due alert (the task is right there in the list).
+                        if newState == .open {
+                            if borderPulse > 0 {
+                                withAnimation(.easeOut(duration: 0.25)) { borderPulse = 0 }
+                            }
+                            tasks.dismissDueAlert()
                         }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .onboardingFinished)) { _ in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            sweepAngle = 0
-                            withAnimation(.easeIn(duration: 0.2)) { borderPulse = 1 }
-                            withAnimation(.linear(duration: 1.4).repeatCount(3, autoreverses: false)) {
-                                sweepAngle = 360
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                                withAnimation(.easeOut(duration: 0.4)) { borderPulse = 0 }
-                            }
-                        }
+                        runSweep(laps: 3, after: 0.4)
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .taskDueAlert)) { _ in
+                        // Let the notch widen into the alert first, then sweep around it.
+                        runSweep(laps: 2, after: 0.35)
                     }
                     .overlay(alignment: .top) {
                         Rectangle()
@@ -227,7 +229,9 @@ struct ContentView: View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
                 do {
-                    if showsFocusActivity {
+                    if showsTaskAlert {
+                          TaskAlertActivity()
+                       } else if showsFocusActivity {
                           FocusLiveActivity()
                        } else if vm.notchState == .closed && Defaults[.showNotHumanFace] && !vm.hideOnClosed {
                           BoringFaceAnimation()
@@ -256,6 +260,68 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
+    }
+
+    // MARK: Comet sweep
+
+    @State private var sweepToken = 0
+
+    /// Runs the lavender comet around the notch outline for `laps` laps.
+    private func runSweep(laps: Int, after delay: Double) {
+        sweepToken += 1
+        let token = sweepToken
+        let lap = 1.4
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard token == sweepToken else { return }
+            sweepAngle = 0
+            withAnimation(.easeIn(duration: 0.2)) { borderPulse = 1 }
+            withAnimation(.linear(duration: lap).repeatCount(laps, autoreverses: false)) {
+                sweepAngle = 360
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + lap * Double(laps) - 0.2) {
+                guard token == sweepToken else { return } // a newer sweep took over
+                withAnimation(.easeOut(duration: 0.4)) { borderPulse = 0 }
+            }
+        }
+    }
+
+    // MARK: Task due alert (closed notch)
+
+    private var showsTaskAlert: Bool {
+        vm.notchState == .closed && tasks.dueAlert != nil && !vm.hideOnClosed
+    }
+
+    private let taskAlertSideWidth: CGFloat = 120
+
+    /// Bell and "Due now" left of the notch, the task title right of it.
+    @ViewBuilder
+    func TaskAlertActivity() -> some View {
+        let title = tasks.dueAlert?.title ?? ""
+        HStack(spacing: 0) {
+            HStack(spacing: 5) {
+                Image(systemName: "bell.fill")
+                    .symbolEffect(.bounce, options: .repeat(3), value: tasks.dueAlert?.id)
+                Text("Due now")
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(PaperPalette.lavender)
+            .frame(width: taskAlertSideWidth, alignment: .leading)
+            .padding(.leading, 6)
+            Rectangle()
+                .fill(.black)
+                .frame(width: vm.closedNotchSize.width - 10)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: taskAlertSideWidth, alignment: .trailing)
+                .padding(.trailing, 6)
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+        .transition(.opacity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Task due now: \(title)")
     }
 
     // MARK: Focus live activity (closed notch)

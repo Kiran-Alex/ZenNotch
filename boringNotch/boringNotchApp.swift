@@ -330,8 +330,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, let window = self.window, let view = window.contentView else { return }
                 if useMock { DebugMock.apply() }
-                self.vm.setKeepOpen("debugSnapshot", true)
-                self.vm.open()
+                if page == "alert" {
+                    // Closed notch showing a sample due-task alert.
+                    TasksManager.shared.debugShowDueAlert()
+                } else {
+                    self.vm.setKeepOpen("debugSnapshot", true)
+                    self.vm.open()
+                }
                 if let page, page.hasPrefix("insights") {
                     // "insights" or "insights:<range>" (week, month, quarter, year, all).
                     self.coordinator.currentView = .insights
@@ -530,6 +535,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let onboardingFinished = Notification.Name("OnboardingFinished")
+    static let taskDueAlert = Notification.Name("TaskDueAlert")
     static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
