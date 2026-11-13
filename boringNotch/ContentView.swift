@@ -54,9 +54,7 @@ struct ContentView: View {
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
 
-        if showsTaskAlert {
-            chinWidth += 2 * taskAlertSideWidth + 22
-        } else if showsFocusActivity {
+        if showsFocusActivity {
             chinWidth += 2 * focusActivitySideWidth + 22
         } else if vm.notchState == .closed && Defaults[.showNotHumanFace] && !vm.hideOnClosed {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
@@ -115,15 +113,11 @@ struct ContentView: View {
                             if borderPulse > 0 {
                                 withAnimation(.easeOut(duration: 0.25)) { borderPulse = 0 }
                             }
-                            tasks.dismissDueAlert()
+                            tasks.dismissTaskAlert()
                         }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .onboardingFinished)) { _ in
                         runSweep(laps: 3, after: 0.4)
-                    }
-                    .onReceive(NotificationCenter.default.publisher(for: .taskDueAlert)) { _ in
-                        // Let the notch widen into the alert first, then sweep around it.
-                        runSweep(laps: 2, after: 0.35)
                     }
                     .overlay(alignment: .top) {
                         Rectangle()
@@ -229,9 +223,7 @@ struct ContentView: View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
                 do {
-                    if showsTaskAlert {
-                          TaskAlertActivity()
-                       } else if showsFocusActivity {
+                    if showsFocusActivity {
                           FocusLiveActivity()
                        } else if vm.notchState == .closed && Defaults[.showNotHumanFace] && !vm.hideOnClosed {
                           BoringFaceAnimation()
@@ -246,6 +238,13 @@ struct ContentView: View {
                   }
               }
               .zIndex(2)
+            if showsTaskAlert, let alert = tasks.taskAlert {
+                // Drops straight down from the closed notch, same width (no sideways growth).
+                TaskAlertCard(alert: alert, width: vm.closedNotchSize.width - 20)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1)
+            }
             if vm.notchState == .open {
                 VStack {
                     NotchHomeView()
@@ -285,43 +284,10 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Task due alert (closed notch)
+    // MARK: Task alert (closed notch)
 
     private var showsTaskAlert: Bool {
-        vm.notchState == .closed && tasks.dueAlert != nil && !vm.hideOnClosed
-    }
-
-    private let taskAlertSideWidth: CGFloat = 120
-
-    /// Bell and "Due now" left of the notch, the task title right of it.
-    @ViewBuilder
-    func TaskAlertActivity() -> some View {
-        let title = tasks.dueAlert?.title ?? ""
-        HStack(spacing: 0) {
-            HStack(spacing: 5) {
-                Image(systemName: "bell.fill")
-                    .symbolEffect(.bounce, options: .repeat(3), value: tasks.dueAlert?.id)
-                Text("Due now")
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(PaperPalette.lavender)
-            .frame(width: taskAlertSideWidth, alignment: .leading)
-            .padding(.leading, 6)
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width - 10)
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: taskAlertSideWidth, alignment: .trailing)
-                .padding(.trailing, 6)
-        }
-        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-        .transition(.opacity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Task due now: \(title)")
+        vm.notchState == .closed && tasks.taskAlert != nil && !vm.hideOnClosed
     }
 
     // MARK: Focus live activity (closed notch)
@@ -404,7 +370,9 @@ struct ContentView: View {
                 haptics.toggle()
             }
             
-            guard vm.notchState == .closed, hoverControlsNotch else { return }
+            // While a task alert is down, hovering must not open the notch, or the
+            // pointer could never reach the Snooze / Done buttons.
+            guard vm.notchState == .closed, hoverControlsNotch, tasks.taskAlert == nil else { return }
             
             hoverTask = Task {
                 try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
@@ -499,4 +467,79 @@ struct ContentView: View {
     return ContentView()
         .environmentObject(vm)
         .frame(width: vm.notchSize.width, height: vm.notchSize.height)
+}
+
+// MARK: - Task alert card
+
+/// The paper card that drops down from the closed notch for a heads-up or a due task.
+struct TaskAlertCard: View {
+    let alert: TaskAlert
+    let width: CGFloat
+    @ObservedObject private var tasks = TasksManager.shared
+    @Default(.taskAlertSnoozeMinutes) private var snoozeMinutes
+
+    private var isDue: Bool { alert.kind == .due }
+    private var tint: Color { isDue ? PaperPalette.mustard : PaperPalette.lavender }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: isDue ? "bell.fill" : "clock.fill")
+                    .symbolEffect(.bounce, options: .repeat(isDue ? 3 : 1), value: alert.firedAt)
+                TimelineView(.periodic(from: .now, by: 15)) { timeline in
+                    Text(label(at: timeline.date))
+                }
+            }
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(PaperPalette.inkSecondary)
+
+            Text(alert.item.title)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(PaperPalette.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 6) {
+                if isDue {
+                    pill("Snooze", systemImage: "moon.zzz.fill", filled: false) { tasks.snoozeTaskAlert() }
+                        .help("Remind me again in \(snoozeMinutes) min")
+                        .accessibilityLabel("Snooze \(snoozeMinutes) minutes")
+                } else {
+                    pill("Dismiss", systemImage: nil, filled: false) { tasks.dismissTaskAlert() }
+                }
+                pill("Done", systemImage: "checkmark", filled: true) { tasks.completeTaskAlert() }
+                    .accessibilityLabel("Mark \(alert.item.title) done")
+            }
+        }
+        .padding(10)
+        .frame(width: width, alignment: .leading)
+        .background(PaperBackground(tint: tint, cornerRadius: 12))
+        .environment(\.colorScheme, .light)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func label(at now: Date) -> String {
+        guard !isDue, let due = alert.item.dueTime else { return "Due now" }
+        let minutes = Int(ceil(due.timeIntervalSince(now) / 60))
+        return minutes <= 0 ? "Due now" : "Due in \(minutes) min"
+    }
+
+    private func pill(_ title: String, systemImage: String?, filled: Bool,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+                Text(title)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(filled ? Color.white : PaperPalette.ink)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(filled ? PaperPalette.ink : PaperPalette.ink.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
 }

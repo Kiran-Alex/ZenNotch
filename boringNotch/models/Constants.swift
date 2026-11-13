@@ -147,6 +147,17 @@ extension Defaults.Keys {
     /// Planned focus length in minutes per reminder id ("Work for 45 mins").
     /// Local only: Reminders has no field for it.
     static let taskDurations = Key<[String: Int]>("taskDurations", default: [:])
+    // MARK: Task alerts
+    /// Drop a card down from the closed notch when a timed task comes due.
+    static let taskAlertsEnabled = Key<Bool>("taskAlertsEnabled", default: true)
+    /// Also show a heads-up card a few minutes before the due time.
+    static let taskAlertHeadsUp = Key<Bool>("taskAlertHeadsUp", default: true)
+    /// Minutes before the due time for the heads-up.
+    static let taskAlertLeadMinutes = Key<Int>("taskAlertLeadMinutes", default: 5)
+    /// Minutes the Snooze button pushes the alert back.
+    static let taskAlertSnoozeMinutes = Key<Int>("taskAlertSnoozeMinutes", default: 10)
+    /// Play a sound with each alert.
+    static let taskAlertSound = Key<Bool>("taskAlertSound", default: true)
 
     // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)

@@ -101,6 +101,51 @@ struct SettingsView: View {
     }
 }
 
+/// Settings > General > Task alerts: the card that drops down from the notch.
+struct TaskAlertSettings: View {
+    @Default(.taskAlertsEnabled) private var enabled
+    @Default(.taskAlertHeadsUp) private var headsUp
+    @Default(.taskAlertLeadMinutes) private var leadMinutes
+    @Default(.taskAlertSnoozeMinutes) private var snoozeMinutes
+    @Default(.taskAlertSound) private var sound
+
+    var body: some View {
+        Section {
+            Toggle("Show an alert in the notch when a task is due", isOn: $enabled)
+            Group {
+                Toggle("Heads-up before it's due", isOn: $headsUp)
+                if headsUp {
+                    Picker("Heads-up time", selection: $leadMinutes) {
+                        ForEach([1, 5, 10, 15, 30], id: \.self) { Text("\($0) min before").tag($0) }
+                    }
+                }
+                Picker("Snooze for", selection: $snoozeMinutes) {
+                    ForEach([5, 10, 15, 30, 60], id: \.self) { Text("\($0) min").tag($0) }
+                }
+                Toggle("Play a sound", isOn: $sound)
+                HStack {
+                    Text("Preview")
+                    Spacer()
+                    Button("Heads-up") { TasksManager.shared.previewTaskAlert(.headsUp) }
+                        .disabled(!headsUp)
+                    Button("Due now") { TasksManager.shared.previewTaskAlert(.due) }
+                }
+            }
+            .disabled(!enabled)
+        } header: {
+            Text("Task alerts")
+        } footer: {
+            Text("Only tasks with a time get alerts. Reminders still sends its own notification too.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        // Re-arm the timers whenever a setting changes.
+        .onChange(of: enabled) { TasksManager.shared.scheduleTaskAlerts() }
+        .onChange(of: headsUp) { TasksManager.shared.scheduleTaskAlerts() }
+        .onChange(of: leadMinutes) { TasksManager.shared.scheduleTaskAlerts() }
+    }
+}
+
 struct GeneralSettings: View {
     @State private var screens: [(uuid: String, name: String)] = NSScreen.screens.compactMap { screen in
         guard let uuid = screen.displayUUID else { return nil }
@@ -163,6 +208,8 @@ struct GeneralSettings: View {
             } header: {
                 Text("System features")
             }
+
+            TaskAlertSettings()
 
             Section {
                 Picker(

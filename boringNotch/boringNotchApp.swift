@@ -330,9 +330,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, let window = self.window, let view = window.contentView else { return }
                 if useMock { DebugMock.apply() }
-                if page == "alert" {
-                    // Closed notch showing a sample due-task alert.
-                    TasksManager.shared.debugShowDueAlert()
+                if let page, page.hasPrefix("alert") {
+                    // Closed notch with a sample task alert: "alert" (due) or "alert:heads".
+                    TasksManager.shared.previewTaskAlert(page.hasSuffix("heads") ? .headsUp : .due)
                 } else {
                     self.vm.setKeepOpen("debugSnapshot", true)
                     self.vm.open()
@@ -535,7 +535,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let onboardingFinished = Notification.Name("OnboardingFinished")
-    static let taskDueAlert = Notification.Name("TaskDueAlert")
     static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")

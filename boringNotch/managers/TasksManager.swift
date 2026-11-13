@@ -88,15 +88,17 @@ final class TasksManager: ObservableObject {
     @Published private(set) var plannedMinutes: [String: Int] = Defaults[.taskDurations]
     @Published private(set) var authorizationStatus: EKAuthorizationStatus
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
-    /// A timed task that just came due; the closed notch shows it as a live activity.
-    @Published private(set) var dueAlert: TaskItem?
+    /// The heads-up or due alert currently dropped down from the closed notch.
+    @Published private(set) var taskAlert: TaskAlert?
 
     private let store = EKEventStore()
     private var alertTimer: Timer?
     private var alertClearTask: Task<Void, Never>?
     private var alertScanTask: Task<Void, Never>?
-    /// "<id>@<due time>" keys already announced this run, so each due time alerts once.
+    /// Alert keys already shown this run, so each heads-up / due time / snooze fires once.
     private var announcedAlerts: Set<String> = []
+    /// Snoozed alerts by reminder id. In memory only; the reminder itself isn't changed.
+    private var snoozes: [String: Date] = [:]
     private let calendar = Calendar.current
     private var changeObserver: NSObjectProtocol?
     private var dayChangeObserver: NSObjectProtocol?
@@ -178,7 +180,7 @@ final class TasksManager: ObservableObject {
         #if DEBUG
         if DebugMock.active { return }
         #endif
-        scheduleDueAlerts()
+        scheduleTaskAlerts()
         authorizationStatus = Self.currentStatus()
         guard hasAccess else {
             todo = []; completed = []; lists = []; daysWithTasks = []
@@ -498,108 +500,167 @@ final class TasksManager: ObservableObject {
     }
 }
 
-// MARK: - Due alerts
+// MARK: - Task alerts
+
+enum TaskAlertKind: Equatable {
+    /// A few minutes before the due time.
+    case headsUp
+    /// At the due time (or when a snooze runs out).
+    case due
+}
+
+struct TaskAlert: Equatable {
+    let item: TaskItem
+    let kind: TaskAlertKind
+    /// When this alert fired; used to replay the bell animation per alert.
+    let firedAt: Date
+}
 
 extension TasksManager {
-    /// How long the due alert stays on the closed notch.
-    static let dueAlertDuration: Duration = .seconds(60)
-    /// If the alert would fire later than this (e.g. the Mac was asleep), it's skipped.
-    private static let dueAlertGrace: TimeInterval = 5 * 60
-    /// Id of the sample alert from `debugShowDueAlert`; it isn't in Reminders.
-    private static let debugAlertID = "debug-alert"
+    /// How long each alert stays down before tucking itself away.
+    private static let dueAlertDuration: Duration = .seconds(90)
+    private static let headsUpDuration: Duration = .seconds(20)
+    /// If an alert would fire later than this (e.g. the Mac was asleep), it's skipped.
+    private static let alertGrace: TimeInterval = 5 * 60
+    /// Id of the sample alert from `previewTaskAlert`; it isn't in Reminders.
+    static let previewAlertID = "preview-alert"
 
-    private func alertKey(_ item: TaskItem) -> String? {
-        guard let due = item.dueTime else { return nil }
-        return "\(item.id)@\(Int(due.timeIntervalSince1970))"
+    private struct Candidate {
+        let item: TaskItem
+        let kind: TaskAlertKind
+        let fire: Date
+        let key: String
     }
 
-    /// Finds the next timed, open task and arms a timer for its due time. Runs on every
-    /// reload, so edits, completions and syncs from other devices re-arm it.
-    func scheduleDueAlerts() {
+    /// Finds the next heads-up, due time or snooze among open timed tasks and arms a
+    /// timer for it. Runs on every reload, so edits, completions and syncs re-arm it.
+    func scheduleTaskAlerts() {
         alertScanTask?.cancel()
-        guard Self.currentStatus() == .fullAccess else {
+        guard Defaults[.taskAlertsEnabled], Self.currentStatus() == .fullAccess else {
             alertTimer?.invalidate()
             alertTimer = nil
-            dismissDueAlert()
+            if taskAlert?.item.id != Self.previewAlertID { dismissTaskAlert() }
             return
         }
         alertScanTask = Task { @MainActor in
             let now = Date()
-            let earliest = now.addingTimeInterval(-Self.dueAlertGrace)
+            let earliest = now.addingTimeInterval(-Self.alertGrace)
             let dayStart = calendar.startOfDay(for: now)
             let end = calendar.date(byAdding: .day, value: 2, to: dayStart)!
             let open = await fetch(store.predicateForIncompleteReminders(
                 withDueDateStarting: dayStart, ending: end, calendars: visibleCalendars()))
             guard !Task.isCancelled else { return }
 
-            // Drop the current alert if its task was completed, deleted or rescheduled.
-            if let current = dueAlert, current.id != Self.debugAlertID,
-               !open.contains(where: { alertKey($0) == alertKey(current) }) {
-                dismissDueAlert()
+            let openByID = Dictionary(open.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            // Completed or deleted since it fired: take the card away.
+            if let current = taskAlert, current.item.id != Self.previewAlertID,
+               openByID[current.item.id] == nil {
+                dismissTaskAlert()
             }
-            let pending = open
-                .filter { item in
-                    guard let due = item.dueTime, let key = alertKey(item) else { return false }
-                    return due >= earliest && !announcedAlerts.contains(key)
+            snoozes = snoozes.filter { openByID[$0.key] != nil }
+
+            let lead = Defaults[.taskAlertHeadsUp] ? Defaults[.taskAlertLeadMinutes] : 0
+            var candidates: [Candidate] = []
+            for item in open {
+                guard let due = item.dueTime else { continue }
+                let base = "\(item.id)@\(Int(due.timeIntervalSince1970))"
+                if lead > 0 {
+                    let fire = due.addingTimeInterval(-Double(lead) * 60)
+                    if fire >= earliest && now < due {
+                        candidates.append(Candidate(item: item, kind: .headsUp, fire: fire, key: base + "#heads"))
+                    }
                 }
-                .sorted { $0.dueTime! < $1.dueTime! }
+                if due >= earliest {
+                    candidates.append(Candidate(item: item, kind: .due, fire: due, key: base + "#due"))
+                }
+            }
+            for (id, fire) in snoozes {
+                guard let item = openByID[id] else { continue }
+                candidates.append(Candidate(
+                    item: item, kind: .due, fire: fire, key: "\(id)@snooze\(Int(fire.timeIntervalSince1970))"))
+            }
+            let pending = candidates
+                .filter { !announcedAlerts.contains($0.key) }
+                .sorted { $0.fire < $1.fire }
 
             alertTimer?.invalidate()
             alertTimer = nil
-            guard let next = pending.first, let due = next.dueTime else { return }
-            if due <= now {
-                fireDueAlert(next)
-            } else {
-                // Re-scan at the due time rather than firing blindly, so the task is re-checked.
-                let timer = Timer(fire: due, interval: 0, repeats: false) { [weak self] _ in
-                    Task { @MainActor in self?.scheduleDueAlerts() }
+
+            // Everything already due counts as shown; only the latest one is displayed,
+            // so a late launch doesn't flash a heads-up and then the due card.
+            let ready = pending.filter { $0.fire <= now }
+            if let latest = ready.last {
+                for c in ready {
+                    announcedAlerts.insert(c.key)
+                    if c.key.contains("@snooze") { snoozes[c.item.id] = nil }
                 }
-                RunLoop.main.add(timer, forMode: .common)
-                alertTimer = timer
+                showTaskAlert(TaskAlert(item: latest.item, kind: latest.kind, firedAt: now))
             }
+            guard let next = pending.first(where: { $0.fire > now }) else { return }
+            // Re-scan at fire time rather than firing blindly, so the task is re-checked.
+            let timer = Timer(fire: next.fire, interval: 0, repeats: false) { [weak self] _ in
+                Task { @MainActor in self?.scheduleTaskAlerts() }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            alertTimer = timer
         }
     }
 
-    private func fireDueAlert(_ item: TaskItem) {
-        guard let key = alertKey(item) else { return }
-        announcedAlerts.insert(key)
-        showDueAlert(item)
-        scheduleDueAlerts() // arm the next one
-    }
-
-    private func showDueAlert(_ item: TaskItem) {
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { dueAlert = item }
-        NotificationCenter.default.post(name: .taskDueAlert, object: nil)
+    private func showTaskAlert(_ alert: TaskAlert) {
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { taskAlert = alert }
+        if Defaults[.taskAlertSound] {
+            NSSound(named: alert.kind == .due ? "Glass" : "Tink")?.play()
+        }
+        let spoken = alert.kind == .due ? "Task due: \(alert.item.title)" : "Coming up: \(alert.item.title)"
         NSAccessibility.post(
             element: NSApp as Any, notification: .announcementRequested,
-            userInfo: [.announcement: "Task due: \(item.title)", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+            userInfo: [.announcement: spoken, .priority: NSAccessibilityPriorityLevel.high.rawValue])
         alertClearTask?.cancel()
+        let duration = alert.kind == .due ? Self.dueAlertDuration : Self.headsUpDuration
         alertClearTask = Task { @MainActor in
-            try? await Task.sleep(for: Self.dueAlertDuration)
+            try? await Task.sleep(for: duration)
             guard !Task.isCancelled else { return }
-            dismissDueAlert()
+            dismissTaskAlert()
         }
     }
 
-    /// Hides the alert (on timeout, or once the notch is opened and the task is visible).
-    func dismissDueAlert() {
+    /// Tucks the card away (timeout, Dismiss, or the notch was opened).
+    func dismissTaskAlert() {
         alertClearTask?.cancel()
         alertClearTask = nil
-        guard dueAlert != nil else { return }
-        withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) { dueAlert = nil }
+        guard taskAlert != nil else { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) { taskAlert = nil }
     }
 
-    #if DEBUG
-    /// Dev aid: show the alert for a sample task without waiting for a due time.
-    func debugShowDueAlert() {
-        let item = TaskItem(
-            id: Self.debugAlertID, title: "Prep slides for design review", isCompleted: false,
-            completionDate: nil, priority: .high, listID: "mock", listName: "Reminders",
-            dueDay: calendar.startOfDay(for: Date()), dueTime: Date(),
-            repeatSummary: nil, location: nil)
-        showDueAlert(item)
+    /// Brings the alert back after the snooze length. The reminder itself is unchanged.
+    func snoozeTaskAlert() {
+        guard let alert = taskAlert else { return }
+        dismissTaskAlert()
+        guard alert.item.id != Self.previewAlertID else { return }
+        snoozes[alert.item.id] = Date().addingTimeInterval(Double(Defaults[.taskAlertSnoozeMinutes]) * 60)
+        scheduleTaskAlerts()
     }
-    #endif
+
+    /// Marks the task done in Reminders and tucks the card away.
+    func completeTaskAlert() {
+        guard let alert = taskAlert else { return }
+        dismissTaskAlert()
+        guard alert.item.id != Self.previewAlertID else { return }
+        snoozes[alert.item.id] = nil
+        setCompleted(alert.item, true)
+    }
+
+    /// Shows a sample alert (Settings > Task alerts > Preview). Its buttons do nothing.
+    func previewTaskAlert(_ kind: TaskAlertKind = .due) {
+        let lead = Double(max(1, Defaults[.taskAlertLeadMinutes])) * 60
+        let item = TaskItem(
+            id: Self.previewAlertID, title: "Prep slides for design review", isCompleted: false,
+            completionDate: nil, priority: .high, listID: "preview", listName: "Reminders",
+            dueDay: calendar.startOfDay(for: Date()),
+            dueTime: kind == .due ? Date() : Date().addingTimeInterval(lead),
+            repeatSummary: nil, location: nil)
+        showTaskAlert(TaskAlert(item: item, kind: kind, firedAt: Date()))
+    }
 }
 
 // MARK: - Natural-language due dates
