@@ -187,6 +187,9 @@ class CalendarManager: ObservableObject {
     }
 
     private func updateEvents() async {
+        #if DEBUG
+        if DebugMock.active { return }
+        #endif
         let calendarIDs = selectedCalendars.map { $0.id }
         let eventsResult = await calendarService.events(
             from: currentWeekStartDate,
@@ -201,6 +204,9 @@ class CalendarManager: ObservableObject {
     @Published var busyDays: Set<Date> = []
 
     func updateBusyDays(from start: Date, days: Int) async {
+        #if DEBUG
+        if DebugMock.active { return }
+        #endif
         let cal = Calendar.current
         let windowStart = cal.startOfDay(for: start)
         guard let windowEnd = cal.date(byAdding: .day, value: days, to: windowStart) else { return }

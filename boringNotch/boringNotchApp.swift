@@ -322,10 +322,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let flag = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("debug-snapshot")
         if FileManager.default.fileExists(atPath: flag.path) {
             // The flag file may name a page to show ("insights").
-            let page = (try? String(contentsOf: flag, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+            var page = (try? String(contentsOf: flag, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+            // A leading "mock" token (e.g. "mock insights") renders fixture data instead of yours.
+            let useMock = page?.hasPrefix("mock") == true
+            if useMock { page = String(page!.dropFirst(4)).trimmingCharacters(in: .whitespaces) }
             try? FileManager.default.removeItem(at: flag)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, let window = self.window, let view = window.contentView else { return }
+                if useMock { DebugMock.apply() }
                 self.vm.setKeepOpen("debugSnapshot", true)
                 self.vm.open()
                 if let page, page.hasPrefix("insights") {

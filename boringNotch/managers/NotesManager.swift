@@ -108,6 +108,9 @@ final class NotesManager: ObservableObject {
     }
 
     private func write() {
+        #if DEBUG
+        if DebugMock.active { return }
+        #endif
         do {
             let data = try JSONEncoder().encode(notes)
             try data.write(to: fileURL, options: .atomic)

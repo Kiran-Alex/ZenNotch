@@ -117,6 +117,9 @@ final class InsightsManager: ObservableObject {
     private var loadTask: Task<Void, Never>?
 
     // Per-day totals from Reminders (start of day → count).
+    #if DEBUG
+    fileprivate var mockFocus: [Date: Int]?
+    #endif
     private var completedByDay: [Date: Int] = [:]
     private var plannedByDay: [Date: Int] = [:]
 
@@ -139,6 +142,9 @@ final class InsightsManager: ObservableObject {
 
     /// Re-reads Reminders (whole history), then recomputes the current range.
     func reload() {
+        #if DEBUG
+        if DebugMock.active { return }
+        #endif
         loadTask?.cancel()
         loadTask = Task { @MainActor in await load() }
     }
@@ -193,6 +199,9 @@ final class InsightsManager: ObservableObject {
             if let day = dayFromFocusKey(key) { focusByDay[day, default: 0] += seconds }
         }
         focusByDay[today, default: 0] += FocusTimerManager.shared.unloggedSecondsToday
+        #if DEBUG
+        if let mock = mockFocus { focusByDay = mock }
+        #endif
 
         let (start, unit) = window(for: range, today: today, focusDays: focusByDay.keys)
         let starts = bucketStarts(from: start, until: tomorrow, unit: unit)
@@ -319,3 +328,29 @@ func focusDurationLabel(_ seconds: Int) -> String {
     if h == 0 { return "\(m)m" }
     return m == 0 ? "\(h)h" : "\(h)h \(m)m"
 }
+
+#if DEBUG
+extension InsightsManager {
+    /// Screenshot fixtures: a believable month of activity. In-memory only.
+    func applyMock() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let done = [0, 1, 3, 2, 4, 3, 0, 2, 5, 4, 1, 3, 2, 3, 4, 5, 2, 3, 1, 4, 3, 2, 5, 4, 3, 2, 4, 3, 5, 3]
+        let extra = [1, 1, 1, 2, 1, 2, 0, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1]
+        var completed: [Date: Int] = [:], planned: [Date: Int] = [:], focus: [Date: Int] = [:]
+        // 90 days of history so "up from N" comparisons have a previous period.
+        for i in 0..<90 {
+            guard let day = cal.date(byAdding: .day, value: -i, to: today) else { continue }
+            let n = done[i % done.count] - (i >= 30 ? 1 : 0)
+            completed[day] = max(0, n)
+            planned[day] = max(0, n) + extra[i % extra.count]
+            focus[day] = max(0, n) * 25 * 60 + (i % 3) * 600
+        }
+        hasReminderAccess = true
+        completedByDay = completed
+        plannedByDay = planned
+        mockFocus = focus
+        recompute()
+    }
+}
+#endif

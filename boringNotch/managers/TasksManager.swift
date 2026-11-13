@@ -168,6 +168,9 @@ final class TasksManager: ObservableObject {
 
     /// Re-reads reminders for `selectedDate`. Coalesces bursts of change notifications.
     func reload() {
+        #if DEBUG
+        if DebugMock.active { return }
+        #endif
         authorizationStatus = Self.currentStatus()
         guard hasAccess else {
             todo = []; completed = []; lists = []; daysWithTasks = []
@@ -191,6 +194,9 @@ final class TasksManager: ObservableObject {
                 withCompletionDateStarting: dayStart, ending: dayEnd, calendars: calendars))
             let (openItems, doneItems) = await (open, done)
             guard !Task.isCancelled else { return }
+            #if DEBUG
+            if DebugMock.active { return }
+            #endif
 
             let showingToday = isShowingToday
             let defaultSorted = openItems
@@ -742,3 +748,93 @@ private func capitalizeIfLeading(_ text: String, removedAtStart: Bool) -> String
     guard removedAtStart, let first = text.first, first.isLowercase else { return text }
     return first.uppercased() + text.dropFirst()
 }
+
+#if DEBUG
+extension TasksManager {
+    /// Screenshot fixtures. In-memory only: never touches Reminders or saved defaults.
+    func applyMock() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        func at(_ h: Int, _ m: Int = 0) -> Date { cal.date(bySettingHour: h, minute: m, second: 0, of: today)! }
+        func item(_ id: String, _ title: String, done: Bool = false, due: Date? = nil,
+                  time: Date? = nil, priority: TaskPriority = .none) -> TaskItem {
+            TaskItem(id: id, title: title, isCompleted: done, completionDate: done ? at(9) : nil,
+                     priority: priority, listID: "mock", listName: "Reminders",
+                     dueDay: due, dueTime: time, repeatSummary: nil, location: nil)
+        }
+        authorizationStatus = .fullAccess
+        selectedDate = today
+        lists = [TaskList(id: "mock", title: "Reminders")]
+        defaultListID = "mock"
+        todo = [
+            item("m1", "Prep slides for design review", due: today, time: at(15), priority: .high),
+            item("m2", "Reply to client emails", due: today, time: at(11, 30)),
+            item("m3", "Review pull requests", due: today),
+            item("m4", "Book flights for the conference", due: today, time: at(17)),
+            item("m5", "Water the plants", due: today),
+        ]
+        completed = [
+            item("m6", "Morning workout", done: true, due: today),
+            item("m7", "Plan the week", done: true, due: today),
+        ]
+        plannedMinutes = ["m1": 45, "m3": 25, "m2": 15]
+        daysWithTasks = [today, cal.date(byAdding: .day, value: 2, to: today)!]
+    }
+}
+#endif
+
+// MARK: - Debug screenshot fixtures (see DebugMock)
+#if DEBUG
+
+@MainActor
+enum DebugMock {
+    /// While true, managers skip reloading from Reminders/Calendar and skip saving notes.
+    static var active = false
+
+    static func apply() {
+        active = true
+        TasksManager.shared.applyMock()
+        CalendarManager.shared.applyMock()
+        NotesManager.shared.applyMock()
+        InsightsManager.shared.applyMock()
+    }
+}
+
+extension CalendarManager {
+    /// Screenshot fixtures. In-memory only; never reads or writes the real calendar.
+    func applyMock() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        // Relative to now so the events always look upcoming, whatever the time.
+        let base = cal.date(bySetting: .minute, value: 0, of: Date().addingTimeInterval(3600))!
+        func at(_ hours: Double) -> Date { base.addingTimeInterval(hours * 3600) }
+        let work = CalendarModel(
+            id: "mock", account: "iCloud", title: "Work",
+            color: .systemPurple, isSubscribed: false, isReminder: false)
+        func event(_ id: String, _ title: String, _ start: Date, _ end: Date, _ place: String? = nil) -> EventModel {
+            EventModel(
+                id: id, start: start, end: end, title: title, location: place, notes: nil, url: nil,
+                isAllDay: false, type: .event(.accepted), calendar: work, participants: [],
+                timeZone: nil, hasRecurrenceRules: false, priority: nil)
+        }
+        events = [
+            event("e1", "Team standup", at(0), at(0.5)),
+            event("e2", "Design review", at(1.5), at(2.5), "Studio B"),
+            event("e3", "Dinner with Maya", at(4), at(5.5)),
+        ]
+        busyDays = [
+            today,
+            cal.date(byAdding: .day, value: 1, to: today)!,
+            cal.date(byAdding: .day, value: 3, to: today)!,
+        ]
+    }
+}
+
+extension NotesManager {
+    /// Screenshot fixture. In-memory only; saving is disabled while mocking.
+    func applyMock() {
+        selectedDate = Calendar.current.startOfDay(for: Date())
+        text = "Ideas for the week:\n- Simplify the onboarding flow\n- Try a 45 min focus block before lunch\n- Send the launch notes to Sam"
+    }
+}
+#endif
