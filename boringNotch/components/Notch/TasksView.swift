@@ -32,6 +32,10 @@ struct TasksView: View {
     @State private var rowPositions: [RowPosition] = []
     /// Row to glow briefly after it's added.
     @State private var highlightedID: String?
+    /// Row flashing after a task alert was tapped.
+    @State private var blinkID: String?
+    @State private var blinkOn = false
+    @State private var blinkTask: Task<Void, Never>?
     /// "Added to <list>" message shown in the add bar for a moment.
     @State private var addedMessage: String?
     /// Detected-date text the user dismissed with ×, so it's saved as plain title.
@@ -327,7 +331,8 @@ struct TasksView: View {
                             row(item, compact: compact)
                                 .background {
                                     RoundedRectangle(cornerRadius: cs(8), style: .continuous)
-                                        .fill(Color.white.opacity(highlightedID == item.id ? 0.38 : 0))
+                                        .fill(Color.white.opacity(
+                                            highlightedID == item.id ? 0.38 : (blinkID == item.id && blinkOn ? 0.5 : 0)))
                                         .padding(.horizontal, cs(-8))
                                         .animation(.easeOut(duration: highlightedID == item.id ? 0.2 : 1.2), value: highlightedID)
                                 }
@@ -375,9 +380,13 @@ struct TasksView: View {
                 }
                 .coordinateSpace(name: Self.scrollSpace)
                 .onChange(of: items.map(\.id)) { _, ids in
+                    handleReveal(ids: ids, proxy: proxy)
                     guard let id = highlightedID, ids.contains(id) else { return }
                     withAnimation(.smooth(duration: 0.35)) { proxy.scrollTo(id, anchor: .center) }
                 }
+                // Tapping a task alert asks for its row: scroll there and blink it.
+                .onChange(of: tasks.revealRequest) { handleReveal(ids: items.map(\.id), proxy: proxy) }
+                .onAppear { handleReveal(ids: items.map(\.id), proxy: proxy) }
                 .onPreferenceChange(RowPositionKey.self) { rowPositions = $0 }
                 // Fade whichever edge has tasks beyond it.
                 .mask {
@@ -398,6 +407,39 @@ struct TasksView: View {
     }
 
     private static let scrollSpace = "taskScroll"
+
+    /// Handles a pending reveal once its row is in the list (it may still be loading).
+    private func handleReveal(ids: [String], proxy: ScrollViewProxy) {
+        guard let request = tasks.revealRequest else { return }
+        // The task is an open one: switch to To do first; the list change calls back in.
+        if tab != .todo {
+            withAnimation(.smooth(duration: 0.2)) { tab = .todo }
+            return
+        }
+        guard ids.contains(request.id) else { return }
+        tasks.consumeRevealRequest(request)
+        // Wait for the notch's open animation so the scroll and blink are seen.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.smooth(duration: 0.35)) { proxy.scrollTo(request.id, anchor: .center) }
+            blink(request.id)
+        }
+    }
+
+    /// Flashes a row three times.
+    private func blink(_ id: String) {
+        blinkTask?.cancel()
+        blinkID = id
+        blinkTask = Task { @MainActor in
+            for _ in 0..<3 {
+                withAnimation(.easeOut(duration: 0.18)) { blinkOn = true }
+                try? await Task.sleep(for: .milliseconds(320))
+                withAnimation(.easeIn(duration: 0.22)) { blinkOn = false }
+                try? await Task.sleep(for: .milliseconds(280))
+                if Task.isCancelled { return }
+            }
+            blinkID = nil
+        }
+    }
 
     // MARK: Drag to reorder (local order; Reminders has no API for position)
 

@@ -90,6 +90,8 @@ final class TasksManager: ObservableObject {
     @Published var selectedDate: Date = Calendar.current.startOfDay(for: Date())
     /// The heads-up or due alert currently dropped down from the closed notch.
     @Published private(set) var taskAlert: TaskAlert?
+    /// Ask the task list to scroll to a task and blink it (set by tapping an alert).
+    @Published private(set) var revealRequest: TaskRevealRequest?
 
     private let store = EKEventStore()
     private var alertTimer: Timer?
@@ -509,6 +511,12 @@ enum TaskAlertKind: Equatable {
     case due
 }
 
+struct TaskRevealRequest: Equatable {
+    let id: String
+    /// Makes repeat requests for the same task distinct, so each one blinks again.
+    let token = UUID()
+}
+
 struct TaskAlert: Equatable {
     let item: TaskItem
     let kind: TaskAlertKind
@@ -641,14 +649,41 @@ extension TasksManager {
         scheduleTaskAlerts()
     }
 
-    /// Marks the task done in Reminders and tucks the card away.
-    func completeTaskAlert() {
+    /// Starts a focus session on the due task and tucks the card away.
+    func startFocusFromAlert() {
         guard let alert = taskAlert else { return }
         dismissTaskAlert()
         guard alert.item.id != Self.previewAlertID else { return }
         snoozes[alert.item.id] = nil
-        setCompleted(alert.item, true)
+        let focus = FocusTimerManager.shared
+        // A session already going on another task ends, so the new one starts fresh.
+        if focus.phase != .idle, focus.taskID != alert.item.id { focus.reset() }
+        focus.start(task: alert.item)
     }
+
+    /// Shows the task's day and asks the list to scroll to it and blink it.
+    func reveal(_ item: TaskItem) {
+        let today = calendar.startOfDay(for: Date())
+        // Today's list also holds overdue and undated tasks; only a later day needs a jump.
+        if let day = item.dueDay, day > today {
+            if day != selectedDate { go(to: day) }
+        } else if !isShowingToday {
+            goToToday()
+        }
+        revealRequest = TaskRevealRequest(id: item.id)
+    }
+
+    /// The list calls this once it has handled the request.
+    func consumeRevealRequest(_ request: TaskRevealRequest) {
+        if revealRequest == request { revealRequest = nil }
+    }
+
+    #if DEBUG
+    /// Dev aid: alert for a task already in the list (used with mock data).
+    func debugShowAlert(for item: TaskItem, kind: TaskAlertKind) {
+        showTaskAlert(TaskAlert(item: item, kind: kind, firedAt: Date()))
+    }
+    #endif
 
     /// Shows a sample alert (Settings > Task alerts > Preview). Its buttons do nothing.
     func previewTaskAlert(_ kind: TaskAlertKind = .due) {

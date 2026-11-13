@@ -240,7 +240,11 @@ struct ContentView: View {
               .zIndex(2)
             if showsTaskAlert, let alert = tasks.taskAlert {
                 // Drops straight down from the closed notch, same width (no sideways growth).
-                TaskAlertCard(alert: alert, width: vm.closedNotchSize.width - 20)
+                TaskAlertCard(alert: alert, width: vm.closedNotchSize.width - 20) {
+                    coordinator.currentView = .home
+                    tasks.reveal(alert.item)
+                    doOpen() // opening also tucks the card away
+                }
                     .padding(.bottom, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(1)
@@ -475,6 +479,8 @@ struct ContentView: View {
 struct TaskAlertCard: View {
     let alert: TaskAlert
     let width: CGFloat
+    /// Opens the notch with this task shown in the list.
+    let onOpenTask: () -> Void
     @ObservedObject private var tasks = TasksManager.shared
     @Default(.taskAlertSnoozeMinutes) private var snoozeMinutes
 
@@ -493,22 +499,34 @@ struct TaskAlertCard: View {
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(PaperPalette.inkSecondary)
 
+            // Tapping the title opens the notch on this task in the list.
             Text(alert.item.title)
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(PaperPalette.ink)
                 .lineLimit(2)
+                .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                // A tap gesture, not a Button: a Button here didn't receive clicks in the
+                // closed notch window, while plain taps do.
+                .onTapGesture { onOpenTask() }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { onOpenTask() }
+                .accessibilityHint("Shows this task in the list")
 
             HStack(spacing: 6) {
                 if isDue {
                     pill("Snooze", systemImage: "moon.zzz.fill", filled: false) { tasks.snoozeTaskAlert() }
                         .help("Remind me again in \(snoozeMinutes) min")
                         .accessibilityLabel("Snooze \(snoozeMinutes) minutes")
+                    pill("Focus", systemImage: "play.fill", filled: true) { tasks.startFocusFromAlert() }
+                        .help("Start a focus session on this task")
+                        .accessibilityLabel("Start focus on \(alert.item.title)")
                 } else {
-                    pill("Dismiss", systemImage: nil, filled: false) { tasks.dismissTaskAlert() }
+                    // A heads-up only informs; the due card follows at the due time.
+                    pill("Got it", systemImage: nil, filled: true) { tasks.dismissTaskAlert() }
                 }
-                pill("Done", systemImage: "checkmark", filled: true) { tasks.completeTaskAlert() }
-                    .accessibilityLabel("Mark \(alert.item.title) done")
             }
         }
         .padding(10)

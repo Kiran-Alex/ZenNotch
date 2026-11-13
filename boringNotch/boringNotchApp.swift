@@ -332,7 +332,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if useMock { DebugMock.apply() }
                 if let page, page.hasPrefix("alert") {
                     // Closed notch with a sample task alert: "alert" (due) or "alert:heads".
-                    TasksManager.shared.previewTaskAlert(page.hasSuffix("heads") ? .headsUp : .due)
+                    let kind: TaskAlertKind = page.hasSuffix("heads") ? .headsUp : .due
+                    if useMock, let first = TasksManager.shared.todo.first {
+                        // A real row, so tapping the title can be checked against the list.
+                        TasksManager.shared.debugShowAlert(for: first, kind: kind)
+                    } else {
+                        TasksManager.shared.previewTaskAlert(kind)
+                    }
                 } else {
                     self.vm.setKeepOpen("debugSnapshot", true)
                     self.vm.open()
