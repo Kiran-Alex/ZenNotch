@@ -522,8 +522,8 @@ struct CalendarSettings: View {
         .onAppear {
             // Only refresh status/lists here. Prompting is left to onboarding or the explicit
             // "Grant access" buttons, so opening Settings never pops a permission dialog.
-            calendarManager.calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-            calendarManager.reminderAuthorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
+            calendarManager.calendarAuthorizationStatus = CalendarService.status(for: .event)
+            calendarManager.reminderAuthorizationStatus = TasksManager.currentStatus()
             Task { await calendarManager.reloadCalendarAndReminderLists() }
         }
     }

@@ -16,7 +16,6 @@ enum OnboardingStep {
     case finished
 }
 
-private let calendarService = CalendarService()
 
 struct OnboardingView: View {
     @State var step: OnboardingStep = .welcome
@@ -123,13 +122,16 @@ struct OnboardingView: View {
         }
     }
 
+    // Ask through the managers the notch cards read from, so a grant here shows up
+    // right away instead of the cards still asking for access until a relaunch.
     func requestCalendarPermission() async {
-        _ = try? await calendarService.requestAccess(to: .event)
+        await CalendarManager.shared.checkCalendarAuthorization()
         await bringOnboardingToFront()
     }
 
     func requestRemindersPermission() async {
-        _ = try? await calendarService.requestAccess(to: .reminder)
+        await TasksManager.shared.requestAccess()
+        await CalendarManager.shared.checkReminderAuthorization()
         await bringOnboardingToFront()
     }
 }

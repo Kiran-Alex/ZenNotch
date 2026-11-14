@@ -21,22 +21,40 @@ class CalendarService: CalendarServiceProviding {
     
     @MainActor
     func requestAccess(to type: EKEntityType) async throws -> Bool {
+        let granted: Bool
         if #available(macOS 14.0, *) {
             switch type {
             case .event:
-                return try await store.requestFullAccessToEvents()
+                granted = try await store.requestFullAccessToEvents()
             case .reminder:
-                return try await store.requestFullAccessToReminders()
+                granted = try await store.requestFullAccessToReminders()
             @unknown default:
-                return false
+                granted = false
             }
         } else {
-            return try await store.requestAccess(to: type)
+            granted = try await store.requestAccess(to: type)
         }
+        if granted {
+            // EventKit can keep reporting "not determined" for the rest of this run,
+            // and an existing store won't see data until it's reset.
+            if type == .event { Self.eventsGrantedThisRun = true } else { Self.remindersGrantedThisRun = true }
+            store.reset()
+        }
+        return granted
     }
-    
+
+    static private(set) var eventsGrantedThisRun = false
+    static private(set) var remindersGrantedThisRun = false
+
+    /// Current status, without letting a stale "not determined" undo a grant made this run.
+    static func status(for type: EKEntityType) -> EKAuthorizationStatus {
+        let status = EKEventStore.authorizationStatus(for: type)
+        let granted = type == .event ? eventsGrantedThisRun : remindersGrantedThisRun
+        return granted && status == .notDetermined ? .fullAccess : status
+    }
+
     private func hasAccess(to entityType: EKEntityType) -> Bool {
-        let status = EKEventStore.authorizationStatus(for: entityType)
+        let status = Self.status(for: entityType)
         if #available(macOS 14.0, *) {
             return status == .fullAccess
         } else {

@@ -93,7 +93,7 @@ class CalendarManager: ObservableObject {
     }
 
     func checkCalendarAuthorization() async {
-        let status = EKEventStore.authorizationStatus(for: .event)
+        let status = CalendarService.status(for: .event)
         DispatchQueue.main.async {
             print("📅 Current calendar authorization status: \(status)")
             self.calendarAuthorizationStatus = status
@@ -130,7 +130,7 @@ class CalendarManager: ObservableObject {
     }
     
     func checkReminderAuthorization() async {
-        let status = EKEventStore.authorizationStatus(for: .reminder)
+        let status = CalendarService.status(for: .reminder)
         DispatchQueue.main.async {
             print("📅 Current reminder authorization status: \(status)")
             self.reminderAuthorizationStatus = status
@@ -229,7 +229,7 @@ class CalendarManager: ObservableObject {
         #if DEBUG
         if DebugMock.active { return }
         #endif
-        let authorized = EKEventStore.authorizationStatus(for: .event) == .fullAccess
+        let authorized = CalendarService.status(for: .event) == .fullAccess
         guard Defaults[.meetingAlertsEnabled], authorized else {
             meetingTimer?.invalidate()
             meetingTimer = nil
