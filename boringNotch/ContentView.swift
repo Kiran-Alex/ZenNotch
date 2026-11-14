@@ -507,6 +507,12 @@ struct TaskAlertCard: View {
                     .symbolEffect(.bounce, options: .repeat(isDue ? 3 : 1), value: alert.firedAt)
                 TimelineView(.periodic(from: .now, by: 15)) { timeline in
                     Text(label(at: timeline.date))
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                if isDue {
+                    Spacer(minLength: 4)
+                    alertCloseButton { tasks.dismissTaskAlert() }
                 }
             }
             .font(.system(size: 10.5, weight: .semibold))
@@ -530,12 +536,21 @@ struct TaskAlertCard: View {
 
             HStack(spacing: 6) {
                 if isDue {
-                    pill("Snooze", systemImage: "moon.zzz.fill", filled: false) { tasks.snoozeTaskAlert() }
-                        .help("Remind me again in \(snoozeMinutes) min")
-                        .accessibilityLabel("Snooze \(snoozeMinutes) minutes")
                     pill("Focus", systemImage: "play.fill", filled: true) { tasks.startFocusFromAlert() }
                         .help("Start a focus session on this task")
                         .accessibilityLabel("Start focus on \(alert.item.title)")
+                    // Icon-only snooze, so Focus gets the room.
+                    Button { tasks.snoozeTaskAlert() } label: {
+                        Image(systemName: "moon.zzz.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(PaperPalette.ink)
+                            .frame(width: 34, height: 25)
+                            .background(Capsule().fill(PaperPalette.ink.opacity(0.12)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Snooze \(snoozeMinutes) min")
+                    .accessibilityLabel("Snooze \(snoozeMinutes) minutes")
                 } else {
                     // A heads-up only informs; the due card follows at the due time.
                     pill("Got it", systemImage: nil, filled: true) { tasks.dismissTaskAlert() }
@@ -559,6 +574,20 @@ struct TaskAlertCard: View {
                       action: @escaping () -> Void) -> some View {
         alertPill(title, systemImage: systemImage, filled: filled, action: action)
     }
+}
+
+/// Round × in the top-right corner of the alert cards.
+@MainActor
+func alertCloseButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+        Image(systemName: "xmark")
+            .font(.system(size: 9, weight: .bold))
+            .frame(width: 18, height: 18)
+            .background(Circle().fill(PaperPalette.ink.opacity(0.12)))
+            .contentShape(Circle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Close")
 }
 
 /// Capsule button used on the task and meeting alert cards.
@@ -603,15 +632,7 @@ struct MeetingAlertCard: View {
                         .fixedSize()
                 }
                 Spacer(minLength: 4)
-                Button { calendar.dismissMeetingAlert() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(PaperPalette.ink.opacity(0.12)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
+                alertCloseButton { calendar.dismissMeetingAlert() }
             }
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(PaperPalette.inkSecondary)
