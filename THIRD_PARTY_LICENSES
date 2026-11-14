@@ -431,3 +431,20 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 This Source Code Form is "Incompatible With Secondary Licenses", as
 defined by the Mozilla Public License, v. 2.0.
+
+-----------------------------------------------------------------------------
+                  Creative Commons Attribution 4.0 (CC BY 4.0)
+        applies to:
+        - Alert sounds in boringNotch/Assets.xcassets/alert-*.dataset
+          (alert-task-soon, alert-task-now, alert-meeting-soon, alert-meeting-now)
+-----------------------------------------------------------------------------
+Source: "Sound resources" from Google's Material Design, Copyright Google LLC.
+https://m2.material.io/design/sound/sound-resources.html
+Mirror: https://archive.org/details/material-design-sound-resources
+
+Original files (02 Alerts and Notifications): notification_simple-01,
+notification_decorative-01, notification_simple-02, notification_decorative-02.
+Changes: volume adjusted to -20 LUFS, resampled to 44.1 kHz, encoded as AAC,
+and renamed.
+
+License: https://creativecommons.org/licenses/by/4.0/

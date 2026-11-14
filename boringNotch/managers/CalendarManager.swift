@@ -292,9 +292,7 @@ class CalendarManager: ObservableObject {
 
     private func showMeetingAlert(_ alert: MeetingAlert) {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { meetingAlert = alert }
-        if Defaults[.taskAlertSound] {
-            NSSound(named: alert.kind == .now ? "Glass" : "Tink")?.play()
-        }
+        (alert.kind == .now ? AlertSound.meetingNow : .meetingSoon).play()
         let spoken = alert.kind == .now ? "Starting now: \(alert.event.title)" : "Starting soon: \(alert.event.title)"
         NSAccessibility.post(
             element: NSApp as Any, notification: .announcementRequested,

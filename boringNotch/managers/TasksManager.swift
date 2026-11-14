@@ -524,6 +524,27 @@ struct TaskAlert: Equatable {
     let firedAt: Date
 }
 
+/// Alert sounds: Google Material Design sounds (CC-BY 4.0), bundled as asset-catalog
+/// data and levelled to -20 LUFS. See THIRD_PARTY_LICENSES.
+@MainActor
+enum AlertSound: String {
+    case taskSoon = "alert-task-soon"
+    case taskNow = "alert-task-now"
+    case meetingSoon = "alert-meeting-soon"
+    case meetingNow = "alert-meeting-now"
+
+    /// Kept alive while playing; NSSound stops if it's released.
+    private static var playing: NSSound?
+
+    func play() {
+        guard Defaults[.taskAlertSound] else { return }
+        guard let data = NSDataAsset(name: rawValue)?.data, let sound = NSSound(data: data) else { return }
+        Self.playing?.stop()
+        Self.playing = sound
+        sound.play()
+    }
+}
+
 extension TasksManager {
     /// How long each alert stays down before tucking itself away.
     private static let dueAlertDuration: Duration = .seconds(90)
@@ -616,9 +637,7 @@ extension TasksManager {
 
     private func showTaskAlert(_ alert: TaskAlert) {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { taskAlert = alert }
-        if Defaults[.taskAlertSound] {
-            NSSound(named: alert.kind == .due ? "Glass" : "Tink")?.play()
-        }
+        (alert.kind == .due ? AlertSound.taskNow : .taskSoon).play()
         let spoken = alert.kind == .due ? "It's time: \(alert.item.title)" : "Coming up: \(alert.item.title)"
         NSAccessibility.post(
             element: NSApp as Any, notification: .announcementRequested,
