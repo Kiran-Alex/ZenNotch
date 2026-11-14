@@ -88,8 +88,8 @@ A small card drops down from the closed notch, so you don't need to open anythin
 
 **Requirements:** macOS 14 Sonoma or later, Apple Silicon or Intel.
 
-1. Download the latest `.dmg` from the [Releases](https://github.com/Kiran-Alex/ZenNotch/releases) page.
-2. Open it and move **ZenNotch** to your `/Applications` folder.
+1. Download `ZenNotch.zip` from the latest [release](https://github.com/Kiran-Alex/ZenNotch/releases/latest).
+2. Unzip it and move **ZenNotch** to your `/Applications` folder.
 
 > [!IMPORTANT]
 > ZenNotch is not notarized by Apple yet, so macOS will warn you about an unidentified developer on first launch. You only need to bypass this once.
