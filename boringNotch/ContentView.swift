@@ -382,7 +382,10 @@ struct ContentView: View {
                 isHovering = true
             }
             
-            if vm.notchState == .closed && Defaults[.enableHaptics] {
+            // The hover tap says "the notch will open". With an alert card down, hovering
+            // doesn't open it, so no tap.
+            let alertShowing = tasks.taskAlert != nil || calendarManager.meetingAlert != nil
+            if vm.notchState == .closed && Defaults[.enableHaptics] && !alertShowing {
                 haptics.toggle()
             }
             
