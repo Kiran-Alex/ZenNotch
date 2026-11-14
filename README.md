@@ -24,6 +24,8 @@
 - **Notepad:** a quick daily scratch note, one page per day.
 - **Events:** your calendar and reminders for the week, right next to your tasks.
 - **Insights:** completed vs planned tasks and focus time over 7 days, 30 days, 3 months, a year or all time.
+- **Task alerts:** a card drops down from the notch a few minutes before a timed task and again when it's time, with Focus and Snooze.
+- **Meeting alerts:** a card before a meeting starts, with a one-click Join for Zoom, Google Meet, Teams, Webex and FaceTime links.
 - **Paper look:** soft, grainy cards in sage, lavender, mustard and slate that stay out of your way.
 
 <p align="center">
