@@ -32,6 +32,12 @@ struct ContentView: View {
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
 
+    // One curve per direction for the shape, so explicit and implicit animations agree.
+    // Open: quick with a hint of settle, no visible bounce. Close: critically damped and short,
+    // so it doesn't crawl the last few points.
+    static let notchOpenAnimation = Animation.spring(response: 0.38, dampingFraction: 0.86, blendDuration: 0)
+    static let notchCloseAnimation = Animation.spring(response: 0.32, dampingFraction: 1.0, blendDuration: 0)
+
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
 
@@ -139,11 +145,8 @@ struct ContentView: View {
                 mainLayout
                     .frame(height: vm.notchState == .open ? vm.notchSize.height : nil, alignment: .top)
                     .conditionalModifier(true) { view in
-                        let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
-                        let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-                        
-                        return view
-                            .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
+                        view
+                            .animation(vm.notchState == .open ? Self.notchOpenAnimation : Self.notchCloseAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                     }
                     .contentShape(Rectangle())
@@ -261,10 +264,15 @@ struct ContentView: View {
                 VStack {
                     NotchHomeView()
                 }
+                // Content grows in with the shape, then on close fades out before the
+                // shape collapses over it (scaling it down on close looked squashed).
                 .transition(
-                    .scale(scale: 0.8, anchor: .top)
-                    .combined(with: .opacity)
-                    .animation(.smooth(duration: 0.35))
+                    .asymmetric(
+                        insertion: .scale(scale: 0.94, anchor: .top)
+                            .combined(with: .opacity)
+                            .animation(.spring(response: 0.36, dampingFraction: 0.9).delay(0.04)),
+                        removal: .opacity.animation(.easeOut(duration: 0.12))
+                    )
                 )
                 .zIndex(1)
                 .allowsHitTesting(vm.notchState == .open)
@@ -365,7 +373,7 @@ struct ContentView: View {
     private func doOpen() {
         // Do not open during onboarding: the content is hidden until it is finished.
         if coordinator.firstLaunch { return }
-        withAnimation(animationSpring) {
+        withAnimation(Self.notchOpenAnimation) {
             vm.open()
         }
     }
@@ -433,7 +441,7 @@ struct ContentView: View {
                   vm.notchState == .open,
                   !vm.isKeptOpen,
                   !vm.isMouseHovering() else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 1.0)) {
+            withAnimation(ContentView.notchCloseAnimation) {
                 vm.close()
             }
         }
