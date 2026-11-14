@@ -501,7 +501,8 @@ struct TaskAlertCard: View {
     @Default(.taskAlertSnoozeMinutes) private var snoozeMinutes
 
     private var isDue: Bool { alert.kind == .due }
-    private var tint: Color { isDue ? PaperPalette.mustard : PaperPalette.lavender }
+    /// Same color as the tasks card, so the color says "task" (meetings use the events slate).
+    private var tint: Color { PaperPalette.sage }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
