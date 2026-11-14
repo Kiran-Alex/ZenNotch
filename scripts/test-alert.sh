@@ -15,7 +15,24 @@ set -euo pipefail
 PREFIX="ZenNotch test"
 DOMAIN="site.kiranalex.zennotch"
 
+# Calendar and Reminders reject scripting with -600 ("Application isn't running") until
+# they're launched. Start them hidden in the background and wait until they answer.
+ensure_running() {
+  local app=$1
+  if ! pgrep -xq "$app"; then
+    open -gj -a "$app"
+  fi
+  for _ in {1..40}; do
+    osascript -e "tell application \"$app\" to get name" >/dev/null 2>&1 && return 0
+    sleep 0.25
+  done
+  echo "$app didn't start; open it once and try again." >&2
+  exit 1
+}
+
 if [[ "${1:-}" == "--cleanup" ]]; then
+  ensure_running Reminders
+  ensure_running Calendar
   osascript - "$PREFIX" <<'APPLESCRIPT'
 on run argv
   set prefix to item 1 of argv
@@ -64,6 +81,7 @@ fi
 if [[ "$MODE" == "task" ]]; then
   TITLE="$PREFIX: ${2:-Prep slides for design review}"
   LEAD=$(defaults read "$DOMAIN" taskAlertLeadMinutes 2>/dev/null || echo 5)
+  ensure_running Reminders
   osascript - "$TITLE" "$MINUTES" <<'APPLESCRIPT'
 on run argv
   set t to item 1 of argv
@@ -83,6 +101,7 @@ else
   LINK=""
   [[ "$MODE" == "meeting" ]] && LINK="https://meet.google.com/abc-defg-hij"
   LEAD=$(defaults read "$DOMAIN" meetingAlertLeadMinutes 2>/dev/null || echo 5)
+  ensure_running Calendar
   osascript - "$TITLE" "$MINUTES" "$LINK" <<'APPLESCRIPT'
 on run argv
   set t to item 1 of argv
