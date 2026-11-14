@@ -64,6 +64,10 @@ A small card drops down from the closed notch, so you don't need to open anythin
 - Joining from the first card skips the second one.
 - Only events with a meeting link get alerts unless you turn on alerts for all events.
 
+<p align="center">
+  <img src="docs/screenshots/alerts.png" alt="Alert cards dropping down from the notch: a task heads-up, a task that's due with Focus and Snooze, and a meeting with Join Meet" width="800" />
+</p>
+
 ### 🎨 Design
 - Soft paper cards with a grain texture: sage for tasks, lavender for focus, mustard for notes and slate for events.
 - Calm alert sounds from Google's Material Design set.
