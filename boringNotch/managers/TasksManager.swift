@@ -619,7 +619,7 @@ extension TasksManager {
         if Defaults[.taskAlertSound] {
             NSSound(named: alert.kind == .due ? "Glass" : "Tink")?.play()
         }
-        let spoken = alert.kind == .due ? "Task due: \(alert.item.title)" : "Coming up: \(alert.item.title)"
+        let spoken = alert.kind == .due ? "It's time: \(alert.item.title)" : "Coming up: \(alert.item.title)"
         NSAccessibility.post(
             element: NSApp as Any, notification: .announcementRequested,
             userInfo: [.announcement: spoken, .priority: NSAccessibilityPriorityLevel.high.rawValue])

@@ -569,9 +569,9 @@ struct TaskAlertCard: View {
     }
 
     private func label(at now: Date) -> String {
-        guard !isDue, let due = alert.item.dueTime else { return "Due now" }
+        guard !isDue, let due = alert.item.dueTime else { return "It's time" }
         let minutes = Int(ceil(due.timeIntervalSince(now) / 60))
-        return minutes <= 0 ? "Due now" : "Due in \(minutes) min"
+        return minutes <= 0 ? "It's time" : "In \(minutes) min"
     }
 
     private func pill(_ title: String, systemImage: String?, filled: Bool,

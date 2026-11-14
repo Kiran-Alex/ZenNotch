@@ -128,7 +128,7 @@ struct TaskAlertSettings: View {
                     Spacer()
                     Button("Heads-up") { TasksManager.shared.previewTaskAlert(.headsUp) }
                         .disabled(!headsUp)
-                    Button("Due now") { TasksManager.shared.previewTaskAlert(.due) }
+                    Button("It's time") { TasksManager.shared.previewTaskAlert(.due) }
                 }
             }
             .disabled(!enabled)
