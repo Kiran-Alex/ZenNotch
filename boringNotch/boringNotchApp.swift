@@ -30,7 +30,8 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("ZenNotch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
+        // MenuBarIcon is a template image (Assets.xcassets), so macOS tints it for light/dark bars.
+        MenuBarExtra("ZenNotch", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             Button("Settings") {
                 DispatchQueue.main.async {
                     SettingsWindowController.shared.showWindow()
