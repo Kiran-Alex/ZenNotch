@@ -451,8 +451,8 @@ struct EventsCardView: View {
         return rest == 0 ? "\(h) hr" : "\(h) hr \(rest) min"
     }
 
-    /// Video-call link from the event's URL, location or notes.
-    private static func meetingLink(_ event: EventModel) -> (url: URL, label: String)? {
+    /// Video-call link from the event's URL, location or notes. Also used by meeting alerts.
+    static func meetingLink(_ event: EventModel) -> (url: URL, label: String)? {
         var candidates: [URL] = []
         if let url = event.url { candidates.append(url) }
         let text = [event.location, event.notes].compactMap { $0 }.joined(separator: "\n")

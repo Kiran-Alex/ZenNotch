@@ -146,6 +146,41 @@ struct TaskAlertSettings: View {
     }
 }
 
+/// Settings > General > Meeting alerts: the card that drops down before an event starts.
+struct MeetingAlertSettings: View {
+    @Default(.meetingAlertsEnabled) private var enabled
+    @Default(.meetingAlertLeadMinutes) private var leadMinutes
+    @Default(.meetingAlertsWithoutLink) private var withoutLink
+
+    var body: some View {
+        Section {
+            Toggle("Show an alert in the notch before a meeting", isOn: $enabled)
+            Group {
+                Picker("Alert me", selection: $leadMinutes) {
+                    ForEach([1, 2, 5, 10, 15], id: \.self) { Text("\($0) min before").tag($0) }
+                }
+                Toggle("Also alert for events without a meeting link", isOn: $withoutLink)
+                HStack {
+                    Text("Preview")
+                    Spacer()
+                    Button("Starts soon") { CalendarManager.shared.previewMeetingAlert(.soon) }
+                    Button("Starting now") { CalendarManager.shared.previewMeetingAlert(.now) }
+                }
+            }
+            .disabled(!enabled)
+        } header: {
+            Text("Meeting alerts")
+        } footer: {
+            Text("You get a second alert when the meeting starts, unless you already joined. Zoom, Google Meet, Teams, Webex and FaceTime links get a Join button. Sound follows the Task alerts setting.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .onChange(of: enabled) { CalendarManager.shared.scheduleMeetingAlerts() }
+        .onChange(of: leadMinutes) { CalendarManager.shared.scheduleMeetingAlerts() }
+        .onChange(of: withoutLink) { CalendarManager.shared.scheduleMeetingAlerts() }
+    }
+}
+
 struct GeneralSettings: View {
     @State private var screens: [(uuid: String, name: String)] = NSScreen.screens.compactMap { screen in
         guard let uuid = screen.displayUUID else { return nil }
@@ -210,6 +245,8 @@ struct GeneralSettings: View {
             }
 
             TaskAlertSettings()
+
+            MeetingAlertSettings()
 
             Section {
                 Picker(

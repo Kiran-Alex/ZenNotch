@@ -330,7 +330,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, let window = self.window, let view = window.contentView else { return }
                 if useMock { DebugMock.apply() }
-                if let page, page.hasPrefix("alert") {
+                if let page, page.hasPrefix("meeting") {
+                    // "meeting", "meeting:soon" or "meeting:nolink" (no Join button).
+                    CalendarManager.shared.previewMeetingAlert(
+                        page.hasSuffix("soon") ? .soon : .now, withLink: !page.hasSuffix("nolink"))
+                } else if let page, page.hasPrefix("alert") {
                     // Closed notch with a sample task alert: "alert" (due) or "alert:heads".
                     let kind: TaskAlertKind = page.hasSuffix("heads") ? .headsUp : .due
                     if useMock, let first = TasksManager.shared.todo.first {

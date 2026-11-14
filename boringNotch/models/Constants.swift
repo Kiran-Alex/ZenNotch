@@ -156,8 +156,15 @@ extension Defaults.Keys {
     static let taskAlertLeadMinutes = Key<Int>("taskAlertLeadMinutes", default: 5)
     /// Minutes the Snooze button pushes the alert back.
     static let taskAlertSnoozeMinutes = Key<Int>("taskAlertSnoozeMinutes", default: 10)
-    /// Play a sound with each alert.
+    /// Play a sound with each alert (tasks and meetings).
     static let taskAlertSound = Key<Bool>("taskAlertSound", default: true)
+    // MARK: Meeting alerts
+    /// Drop a card down from the closed notch before a calendar event starts.
+    static let meetingAlertsEnabled = Key<Bool>("meetingAlertsEnabled", default: true)
+    /// Minutes before the start for the "Starts in" card.
+    static let meetingAlertLeadMinutes = Key<Int>("meetingAlertLeadMinutes", default: 5)
+    /// Also alert for events without a video-call link (off: only meetings you can join).
+    static let meetingAlertsWithoutLink = Key<Bool>("meetingAlertsWithoutLink", default: false)
 
     // MARK: Calendar
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)

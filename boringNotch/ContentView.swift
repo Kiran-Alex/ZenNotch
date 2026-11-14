@@ -18,6 +18,7 @@ struct ContentView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var focus = FocusTimerManager.shared
     @ObservedObject var tasks = TasksManager.shared
+    @ObservedObject var calendarManager = CalendarManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var clickMonitors: [Any] = []
@@ -114,6 +115,7 @@ struct ContentView: View {
                                 withAnimation(.easeOut(duration: 0.25)) { borderPulse = 0 }
                             }
                             tasks.dismissTaskAlert()
+                            calendarManager.dismissMeetingAlert()
                         }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .onboardingFinished)) { _ in
@@ -238,7 +240,13 @@ struct ContentView: View {
                   }
               }
               .zIndex(2)
-            if showsTaskAlert, let alert = tasks.taskAlert {
+            if showsMeetingAlert, let alert = calendarManager.meetingAlert {
+                // A meeting is time-critical, so it shows ahead of any task alert.
+                MeetingAlertCard(alert: alert, width: vm.closedNotchSize.width - 20)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1)
+            } else if showsTaskAlert, let alert = tasks.taskAlert {
                 // Drops straight down from the closed notch, same width (no sideways growth).
                 TaskAlertCard(alert: alert, width: vm.closedNotchSize.width - 20) {
                     coordinator.currentView = .home
@@ -292,6 +300,10 @@ struct ContentView: View {
 
     private var showsTaskAlert: Bool {
         vm.notchState == .closed && tasks.taskAlert != nil && !vm.hideOnClosed
+    }
+
+    private var showsMeetingAlert: Bool {
+        vm.notchState == .closed && calendarManager.meetingAlert != nil && !vm.hideOnClosed
     }
 
     // MARK: Focus live activity (closed notch)
@@ -376,7 +388,8 @@ struct ContentView: View {
             
             // While a task alert is down, hovering must not open the notch, or the
             // pointer could never reach the Snooze / Done buttons.
-            guard vm.notchState == .closed, hoverControlsNotch, tasks.taskAlert == nil else { return }
+            guard vm.notchState == .closed, hoverControlsNotch,
+                  tasks.taskAlert == nil, calendarManager.meetingAlert == nil else { return }
             
             hoverTask = Task {
                 try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
@@ -544,6 +557,14 @@ struct TaskAlertCard: View {
 
     private func pill(_ title: String, systemImage: String?, filled: Bool,
                       action: @escaping () -> Void) -> some View {
+        alertPill(title, systemImage: systemImage, filled: filled, action: action)
+    }
+}
+
+/// Capsule button used on the task and meeting alert cards.
+@MainActor
+func alertPill(_ title: String, systemImage: String?, filled: Bool,
+               action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 3) {
                 if let systemImage { Image(systemName: systemImage).imageScale(.small) }
@@ -559,5 +580,55 @@ struct TaskAlertCard: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+}
+
+// MARK: - Meeting alert card
+
+/// Slate paper card that drops down from the closed notch before an event starts.
+struct MeetingAlertCard: View {
+    let alert: MeetingAlert
+    let width: CGFloat
+    @ObservedObject private var calendar = CalendarManager.shared
+
+    private var link: (url: URL, label: String)? { EventsCardView.meetingLink(alert.event) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: link != nil ? "video.fill" : "calendar")
+                    .symbolEffect(.bounce, options: .repeat(alert.kind == .now ? 3 : 1), value: alert.firedAt)
+                TimelineView(.periodic(from: .now, by: 15)) { timeline in
+                    Text(label(at: timeline.date))
+                }
+            }
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(PaperPalette.inkSecondary)
+
+            Text(alert.event.title)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(PaperPalette.ink)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 6) {
+                alertPill("Got it", systemImage: nil, filled: link == nil) { calendar.dismissMeetingAlert() }
+                if let link {
+                    // Plain "Join" so long service names (FaceTime, Webex) never overflow.
+                    alertPill("Join", systemImage: "video.fill", filled: true) { calendar.joinMeetingFromAlert() }
+                        .help(link.label)
+                        .accessibilityLabel(link.label)
+                }
+            }
+        }
+        .padding(10)
+        .frame(width: width, alignment: .leading)
+        .background(PaperBackground(tint: PaperPalette.slate, cornerRadius: 12))
+        .environment(\.colorScheme, .light)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func label(at now: Date) -> String {
+        let minutes = Int(ceil(alert.event.start.timeIntervalSince(now) / 60))
+        return minutes <= 0 ? "Starting now" : "Starts in \(minutes) min"
     }
 }
