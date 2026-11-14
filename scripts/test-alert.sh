@@ -42,11 +42,18 @@ APPLESCRIPT
   exit 0
 fi
 
+# Flags may come anywhere ("--meeting 1" or "1 --meeting"); the rest are minutes and title.
 MODE="task"
-case "${1:-}" in
-  --meeting) MODE="meeting"; shift ;;
-  --meeting-nolink) MODE="nolink"; shift ;;
-esac
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --meeting) MODE="meeting" ;;
+    --meeting-nolink) MODE="nolink" ;;
+    --*) echo "unknown option: $arg" >&2; exit 1 ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+set -- "${ARGS[@]}"
 
 MINUTES="${1:-7}"
 if ! [[ "$MINUTES" =~ ^[0-9]+$ ]] || (( MINUTES < 1 )); then

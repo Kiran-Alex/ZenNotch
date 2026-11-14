@@ -599,7 +599,19 @@ struct MeetingAlertCard: View {
                     .symbolEffect(.bounce, options: .repeat(alert.kind == .now ? 3 : 1), value: alert.firedAt)
                 TimelineView(.periodic(from: .now, by: 15)) { timeline in
                     Text(label(at: timeline.date))
+                        .lineLimit(1)
+                        .fixedSize()
                 }
+                Spacer(minLength: 4)
+                Button { calendar.dismissMeetingAlert() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(PaperPalette.ink.opacity(0.12)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
             }
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(PaperPalette.inkSecondary)
@@ -610,14 +622,10 @@ struct MeetingAlertCard: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 6) {
-                alertPill("Got it", systemImage: nil, filled: link == nil) { calendar.dismissMeetingAlert() }
-                if let link {
-                    // Plain "Join" so long service names (FaceTime, Webex) never overflow.
-                    alertPill("Join", systemImage: "video.fill", filled: true) { calendar.joinMeetingFromAlert() }
-                        .help(link.label)
-                        .accessibilityLabel(link.label)
-                }
+            if let link {
+                // Names the service ("Join Meet"); full width, so even "Join FaceTime" fits.
+                alertPill(link.label, systemImage: "video.fill", filled: true) { calendar.joinMeetingFromAlert() }
+                    .help("Open the meeting link")
             }
         }
         .padding(10)
