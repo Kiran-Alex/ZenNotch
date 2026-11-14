@@ -532,12 +532,16 @@ enum AlertSound: String {
     case taskNow = "alert-task-now"
     case meetingSoon = "alert-meeting-soon"
     case meetingNow = "alert-meeting-now"
+    /// End of a focus session (Material "hero_simple-celebration-01").
+    case focusDone = "alert-focus-done"
 
     /// Kept alive while playing; NSSound stops if it's released.
     private static var playing: NSSound?
 
+    /// Alert sounds follow Settings > Task alerts > Play a sound; the focus chime
+    /// always plays, as it did before that setting existed.
     func play() {
-        guard Defaults[.taskAlertSound] else { return }
+        guard self == .focusDone || Defaults[.taskAlertSound] else { return }
         guard let data = NSDataAsset(name: rawValue)?.data, let sound = NSSound(data: data) else { return }
         Self.playing?.stop()
         Self.playing = sound

@@ -189,7 +189,7 @@ final class FocusTimerManager: ObservableObject {
         recordSegment()
         endDate = nil
         phase = .finished
-        NSSound(named: "Glass")?.play()
+        AlertSound.focusDone.play()
         postFinishedNotification()
     }
 
