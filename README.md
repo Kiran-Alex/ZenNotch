@@ -8,6 +8,7 @@
 </p>
 
 <p align="center">
+  <a href="https://app.kiranalex.site/#/app/zennotch"><img src="https://img.shields.io/badge/Download-for%20macOS-2ea44f?logo=apple&logoColor=white" alt="Download for macOS" /></a>
   <a href="https://discord.gg/5hyMAsBvXr"><img src="https://img.shields.io/badge/Discord-join%20for%20updates-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-lightgrey" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0" />
