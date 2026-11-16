@@ -4,7 +4,7 @@
 
 <p align="center">
   A calm, paper-styled productivity hub that lives in your MacBook's notch.<br/>
-  Tasks, focus timer, notes, calendar and insights, one hover away.
+  Tasks, focus timer, a sticky note, calendar and insights, one hover away.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.png" alt="ZenNotch home: tasks, focus timer, notepad and events" />
+  <img src="docs/screenshots/home.png" alt="ZenNotch home: tasks, focus timer, sticky note and events" />
 </p>
 
 ## Features
@@ -36,9 +36,9 @@ Your tasks are Apple Reminders, so they sync with iCloud, your iPhone and your A
 - While a session runs, the closed notch shows the countdown, so you can keep track without opening it.
 - A soft chime and a notification when the session ends.
 
-### 📝 Notepad
-- One note per day, saved automatically on your Mac.
-- Jump to any day with the month picker. Days with notes are marked.
+### 📝 Sticky
+- One note that stays put: no days to browse, just write.
+- Saved automatically on your Mac.
 - A live word count.
 
 ### 📅 Events
@@ -50,7 +50,8 @@ Your tasks are Apple Reminders, so they sync with iCloud, your iPhone and your A
 
 ### 📊 Insights
 - Tasks completed against tasks planned, and focus time.
-- Ranges of this week, this month, 3 months, a year or all time, compared with the period before.
+- Ranges of this week, this month, 3 months, a year or all time. This week and this month are compared with the same days of the period before.
+- Your week and month can start on any day (Settings > General > Weeks and months), for example a month that runs from the 25th.
 - Totals for focus time, active days and your best day.
 
 ### 🤖 AI apps (MCP)
@@ -79,12 +80,14 @@ A small card drops down from the closed notch, so you don't need to open anythin
 </p>
 
 ### 🎨 Design
-- Soft paper cards with a grain texture: sage for tasks, lavender for focus, mustard for notes and slate for events.
+- Soft paper cards with a grain texture: sage for tasks, lavender for focus, mustard for the sticky note and slate for events.
 - Calm alert sounds from Google's Material Design set.
 - Text and spacing scale with your screen size.
 
 ### ⚙️ Settings
 - **Alerts:** turn task and meeting alerts on or off, set the heads-up time, the snooze length, and sound.
+- **Weeks and months:** pick the day your week starts on and the day your month starts on. Insights and the date pickers follow.
+- **AI apps:** turn the MCP server on, copy the config for your app, and choose whether AI apps may delete tasks.
 - **Cards:** show or hide each card. Drag the handle at the top of a card to reorder them.
 - **Behaviour:** open the notch on hover or on click, set the hover delay, haptics, and the keyboard shortcut.
 - **Display:** choose which screen, show it on every screen, adjust the notch height, and hide it from screen recordings.
@@ -125,7 +128,8 @@ xattr -dr com.apple.quarantine "/Applications/ZenNotch.app"
 ## Privacy
 
 - Tasks and events stay in Apple Reminders and Calendar. ZenNotch reads and edits them on your Mac.
-- Notes, focus history and settings are stored locally on your Mac.
+- Your sticky note, focus history and settings are stored locally on your Mac.
+- The MCP server is off by default. When on, it only listens on your Mac (`127.0.0.1`) and needs a secret token, so nothing leaves your computer.
 
 ## Building from source
 
