@@ -176,6 +176,78 @@ struct WeekMonthSettings: View {
     }
 }
 
+/// Settings > General > AI apps (MCP): lets Claude, Cursor and other MCP clients work
+/// with the task list. Off by default.
+struct MCPSettings: View {
+    @Default(.mcpEnabled) private var enabled
+    @Default(.mcpPort) private var port
+    @Default(.mcpAllowDelete) private var allowDelete
+    @ObservedObject private var server = MCPServer.shared
+    @State private var copied: String?
+
+    private var executable: String { Bundle.main.executablePath ?? "/Applications/ZenNotch.app/Contents/MacOS/ZenNotch" }
+
+    private var statusText: String {
+        switch server.status {
+        case .off: return "Off"
+        case .starting: return "Starting…"
+        case .running(let port): return "Running on 127.0.0.1:\(port) (this Mac only)"
+        case .failed(let message): return message
+        }
+    }
+
+    var body: some View {
+        Section {
+            Toggle("Let AI apps use my tasks", isOn: $enabled)
+            if enabled {
+                LabeledContent("Status") {
+                    Text(statusText)
+                        .foregroundStyle({ if case .failed = server.status { return Color.red } else { return Color.secondary } }())
+                }
+                TextField("Port", value: $port, format: .number.grouping(.never))
+                Toggle("Allow deleting tasks", isOn: $allowDelete)
+                copyButton("Claude Desktop / Cursor (command)", id: "stdio", text: stdioConfig)
+                copyButton("Cursor / other apps (HTTP + token)", id: "http", text: httpConfig)
+                copyButton("Claude Code (command)", id: "claude", text: claudeCommand)
+                Button("Make a new token") { server.regenerateToken() }
+            }
+        } header: {
+            Text("AI apps (MCP)")
+        } footer: {
+            Text("Claude, Cursor and other MCP apps can then read your tasks (todo://today), add, change, search and complete them. Everything stays on this Mac: the server only listens on 127.0.0.1 and needs the token. Deleting is off unless you allow it. Subtasks and tags are saved in a task's notes, because Reminders has no place for them.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func copyButton(_ title: String, id: String, text: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Button(copied == id ? "Copied" : "Copy config") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                copied = id
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { if copied == id { copied = nil } }
+            }
+        }
+    }
+
+    private func json(_ server: [String: Any]) -> String {
+        let root: [String: Any] = ["mcpServers": ["zennotch": server]]
+        let data = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        return data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+
+    private var stdioConfig: String { json(["command": executable, "args": ["--mcp-stdio"]]) }
+    private var httpConfig: String {
+        json(["url": self.server.endpoint, "headers": ["Authorization": "Bearer \(self.server.token)"]])
+    }
+    private var claudeCommand: String {
+        "claude mcp add --transport http zennotch \(self.server.endpoint) --header \"Authorization: Bearer \(self.server.token)\""
+    }
+}
+
 /// Settings > General > Meeting alerts: the card that drops down before an event starts.
 struct MeetingAlertSettings: View {
     @Default(.meetingAlertsEnabled) private var enabled
@@ -279,6 +351,8 @@ struct GeneralSettings: View {
             MeetingAlertSettings()
 
             WeekMonthSettings()
+
+            MCPSettings()
 
             Section {
                 Picker(

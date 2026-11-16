@@ -146,6 +146,13 @@ extension Defaults.Keys {
     /// Day of the month a "month" starts on (1–28), e.g. 25 for a pay-cycle month.
     static let monthStartDay = Key<Int>("monthStartDay", default: 1)
 
+    // MARK: AI apps (MCP)
+    /// Local MCP server so AI apps can read and edit tasks. Off until the user turns it on.
+    static let mcpEnabled = Key<Bool>("mcpEnabled", default: false)
+    static let mcpPort = Key<Int>("mcpPort", default: 47821)
+    /// Lets AI apps permanently delete tasks (they can always complete them).
+    static let mcpAllowDelete = Key<Bool>("mcpAllowDelete", default: false)
+
     // MARK: Tasks
     /// Manual order of open tasks (reminder ids). Local only: EventKit has no API
     /// for a reminder's position, so this can't sync to the Reminders app.

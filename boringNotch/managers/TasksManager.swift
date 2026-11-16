@@ -93,7 +93,7 @@ final class TasksManager: ObservableObject {
     /// Ask the task list to scroll to a task and blink it (set by tapping an alert).
     @Published private(set) var revealRequest: TaskRevealRequest?
 
-    private let store = EKEventStore()
+    let store = EKEventStore()
     private var alertTimer: Timer?
     private var alertClearTask: Task<Void, Never>?
     private var alertScanTask: Task<Void, Never>?
@@ -101,7 +101,7 @@ final class TasksManager: ObservableObject {
     private var announcedAlerts: Set<String> = []
     /// Snoozed alerts by reminder id. In memory only; the reminder itself isn't changed.
     private var snoozes: [String: Date] = [:]
-    private let calendar = Calendar.current
+    let calendar = Calendar.current
     private var changeObserver: NSObjectProtocol?
     private var dayChangeObserver: NSObjectProtocol?
     private var reloadTask: Task<Void, Never>?
@@ -288,7 +288,7 @@ final class TasksManager: ObservableObject {
     }
 
     /// Respects the reminder lists chosen in Settings > Calendar.
-    private func visibleCalendars() -> [EKCalendar]? {
+    func visibleCalendars() -> [EKCalendar]? {
         let all = store.calendars(for: .reminder)
         if case .selected(let ids) = Defaults[.calendarSelectionState] {
             return all.filter { ids.contains($0.calendarIdentifier) }
@@ -507,7 +507,7 @@ final class TasksManager: ObservableObject {
         save(reminder)
     }
 
-    private func applyDue(_ comps: DateComponents, to reminder: EKReminder) {
+    func applyDue(_ comps: DateComponents, to reminder: EKReminder) {
         reminder.dueDateComponents = comps
         reminder.alarms?.forEach { reminder.removeAlarm($0) }
         if comps.hour != nil, let date = calendar.date(from: comps) {

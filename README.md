@@ -53,6 +53,15 @@ Your tasks are Apple Reminders, so they sync with iCloud, your iPhone and your A
 - Ranges of this week, this month, 3 months, a year or all time, compared with the period before.
 - Totals for focus time, active days and your best day.
 
+### 🤖 AI apps (MCP)
+Let Claude, Cursor, Claude Code or any MCP app work with your tasks. Turn it on in Settings > General > AI apps (MCP), then copy the config for your app.
+
+- **Tools:** `create_task` (notes, due date, priority, list, tags, subtasks), `update_task`, `batch_update_tasks`, `complete_task`, `delete_task`, `search_tasks`, `list_lists`.
+- **Resources:** `todo://today`, `todo://active` and `todo://overdue`, so an AI can see your plate without searching.
+- **Two ways to connect:** run `ZenNotch --mcp-stdio` as a command (Claude Desktop, Cursor), or use the local HTTP address with the token (`http://127.0.0.1:47821/mcp`).
+- **Private:** off by default, listens on this Mac only, needs a token, and deleting tasks stays off unless you allow it.
+- Reminders has no subtasks or tags, so they're saved in the task's notes (a `- [ ]` checklist and `#hashtags`).
+
 ### 🔔 Task alerts
 A small card drops down from the closed notch, so you don't need to open anything.
 

@@ -21,6 +21,9 @@ struct DynamicNotchApp: App {
     let updaterController: SPUStandardUpdaterController
 
     init() {
+        // `ZenNotch --mcp-stdio` is an MCP relay for AI apps, not the notch: it never gets this far.
+        MCPStdioBridge.runIfRequested()
+
         // Automatic updates are off for the alpha (the old feed belonged to Boring Notch).
         updaterController = SPUStandardUpdaterController(
             startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
@@ -200,6 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        MCPServer.shared.applySettings()
 
         NotificationCenter.default.addObserver(
             self,
