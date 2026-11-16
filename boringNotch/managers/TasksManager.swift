@@ -439,6 +439,30 @@ final class TasksManager: ObservableObject {
         save(reminder)
     }
 
+    /// Saves a rename together with details typed into the title (date, time, list,
+    /// priority, duration), in one write. Nil details leave the task as it is.
+    func applyEdit(_ item: TaskItem, title: String, due: ParsedDue? = nil, minutes: Int? = nil,
+                   priority: TaskPriority? = nil, listID: String? = nil) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let reminder = reminder(item) else { return }
+        var changed = false
+        if !trimmed.isEmpty, trimmed != item.title { reminder.title = trimmed; changed = true }
+        if let priority { reminder.priority = priority.ekPriority; changed = true }
+        if let listID, listID != item.listID, let list = store.calendar(withIdentifier: listID) {
+            reminder.calendar = list
+            changed = true
+        }
+        if let due {
+            let comps = due.hasTime
+                ? calendar.dateComponents([.year, .month, .day, .hour, .minute], from: due.date)
+                : calendar.dateComponents([.year, .month, .day], from: due.date)
+            applyDue(comps, to: reminder)
+            changed = true
+        }
+        if changed { save(reminder) }
+        if let minutes { setPlannedMinutes(item.id, minutes) }
+    }
+
     func setPriority(_ item: TaskItem, _ priority: TaskPriority) {
         guard let reminder = reminder(item) else { return }
         reminder.priority = priority.ekPriority

@@ -558,7 +558,18 @@ struct TasksView: View {
             }
             .accessibilityLabel(item.isCompleted ? "Mark \(item.title) as not done" : "Mark \(item.title) as done")
 
-            if compact {
+            if editingID == item.id {
+                // Renaming: details typed into the name show as pills below it, like the add bar.
+                VStack(alignment: .leading, spacing: cs(4)) {
+                    titleView(item, compact: compact)
+                    if hasEditPills {
+                        duePills(parsedInput, parsedDuration)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(.smooth(duration: 0.2), value: hasEditPills)
+            } else if compact {
                 HStack(spacing: cs(10)) {
                     titleView(item, compact: true)
                     TaskMeta(item: item, selectedDay: tasks.selectedDate, hiddenListID: hiddenListID,
@@ -762,7 +773,7 @@ struct TasksView: View {
 
     private func addBar(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: cs(6)) {
-            if parsedInput != nil || parsedDuration != nil || parsedPriority != nil || parsedList != nil {
+            if isAdding, parsedInput != nil || parsedDuration != nil || parsedPriority != nil || parsedList != nil {
                 duePills(parsedInput, parsedDuration)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -867,16 +878,22 @@ struct TasksView: View {
 
     /// "Plan launch #Work" → the Work list (only lists that exist).
     private var parsedList: ParsedListTag? {
-        guard isAdding, let parsed = TaskListTagParser.parse(newTitle, lists: tasks.lists),
+        guard let source = parseSource, let parsed = TaskListTagParser.parse(source, lists: tasks.lists),
               parsed.matchedText != dismissedListText else { return nil }
         return parsed
     }
 
-    private var textWithoutList: String { parsedList?.remaining ?? newTitle }
+    private var textWithoutList: String { parsedList?.remaining ?? parseSource ?? "" }
+
+    /// Text being typed into the add bar, or into the row being renamed.
+    private var parseSource: String? {
+        if isAdding { return newTitle }
+        return editingID != nil ? editingTitle : nil
+    }
 
     /// "Pay rent !!!", "Fix bug urgent", "p2 …" → priority (unless dismissed).
     private var parsedPriority: ParsedPriority? {
-        guard isAdding, let parsed = TaskPriorityParser.parse(textWithoutList),
+        guard parseSource != nil, let parsed = TaskPriorityParser.parse(textWithoutList),
               parsed.matchedText != dismissedPriorityText else { return nil }
         return parsed
     }
@@ -885,7 +902,7 @@ struct TasksView: View {
 
     /// "Work for 45 mins" → 45 min (unless dismissed). Parsed before dates.
     private var parsedDuration: ParsedDuration? {
-        guard isAdding, let parsed = TaskDurationParser.parse(textWithoutPriority),
+        guard parseSource != nil, let parsed = TaskDurationParser.parse(textWithoutPriority),
               parsed.matchedText != dismissedDurationText else { return nil }
         return parsed
     }
@@ -894,7 +911,7 @@ struct TasksView: View {
     private var textWithoutDuration: String { parsedDuration?.remaining ?? textWithoutPriority }
 
     private var parsedInput: ParsedTaskInput? {
-        guard isAdding, let parsed = TaskDateParser.parse(textWithoutDuration),
+        guard parseSource != nil, let parsed = TaskDateParser.parse(textWithoutDuration),
               parsed.matchedText != dismissedDateText else { return nil }
         if parsed.due.hasTime, parsed.matchedText == dismissedTimeText {
             let day = Calendar.current.startOfDay(for: parsed.due.date)
@@ -1029,16 +1046,46 @@ struct TasksView: View {
     // MARK: Typing / keyboard focus
 
     private func startAdding() {
+        if editingID != nil {
+            saveEditIfChanged()
+            editingID = nil
+        }
+        resetDismissed()
         beginTyping()
         isAdding = true
         DispatchQueue.main.async { focusedField = .add }
         endTypingIfFocusFailed()
     }
 
+    private var hasEditPills: Bool {
+        parsedInput != nil || parsedDuration != nil || parsedPriority != nil || parsedList != nil
+    }
+
+    private func resetDismissed() {
+        dismissedDateText = nil
+        dismissedTimeText = nil
+        dismissedDurationText = nil
+        dismissedPriorityText = nil
+        dismissedListText = nil
+    }
+
+    /// Text already in the title when renaming starts isn't a new detail: ignore it,
+    /// so only what the user types afterwards turns into pills (and changes the task).
+    private func dismissExistingDetails(in title: String) {
+        resetDismissed()
+        var text = title
+        if let p = TaskListTagParser.parse(text, lists: tasks.lists) { dismissedListText = p.matchedText; text = p.remaining }
+        if let p = TaskPriorityParser.parse(text) { dismissedPriorityText = p.matchedText; text = p.remaining }
+        if let p = TaskDurationParser.parse(text) { dismissedDurationText = p.matchedText; text = p.remaining }
+        if let p = TaskDateParser.parse(text) { dismissedDateText = p.matchedText }
+    }
+
     private func startEditing(_ item: TaskItem) {
         // Switching to another task saves the one being edited.
         if editingID != nil { saveEditIfChanged() }
         beginTyping()
+        isAdding = false
+        dismissExistingDetails(in: item.title)
         editingTitle = item.title
         editingID = item.id
         DispatchQueue.main.async { focusedField = .edit(item.id) }
@@ -1064,7 +1111,14 @@ struct TasksView: View {
         guard let id = editingID,
               let item = tasks.todo.first(where: { $0.id == id }) ?? tasks.completed.first(where: { $0.id == id })
         else { return }
-        tasks.rename(item, to: editingTitle)
+        let parsed = parsedInput
+        tasks.applyEdit(item,
+                        title: parsed?.title ?? textWithoutDuration,
+                        due: parsed?.due,
+                        minutes: parsedDuration?.minutes,
+                        priority: parsedPriority?.priority,
+                        listID: parsedList?.listID)
+        resetDismissed()
     }
 
     private var isTyping: Bool { isAdding || editingID != nil }

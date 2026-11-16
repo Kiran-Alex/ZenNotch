@@ -174,13 +174,22 @@ struct ContentView: View {
                     }
                     .onChange(of: vm.isKeptOpen) { _, keptOpen in
                         // Typing/dragging finished with the pointer already outside: close now.
-                        if Defaults[.notchInteractionMode] == .hover && !keptOpen && !isHovering && vm.notchState == .open {
+                        // `isHovering` can be stale here (hover events don't fire while a drag or
+                        // text edit rearranges views under a still pointer), so also check the
+                        // real pointer position before closing.
+                        if Defaults[.notchInteractionMode] == .hover && !keptOpen && vm.notchState == .open {
+                            if vm.isMouseHovering() {
+                                if !isHovering { withAnimation(animationSpring) { isHovering = true } }
+                                return
+                            }
+                            guard !isHovering else { return }
                             hoverTask?.cancel()
                             hoverTask = Task {
-                                try? await Task.sleep(for: .seconds(Defaults[.closeDelay]))
+                                try? await Task.sleep(for: .seconds(max(Defaults[.closeDelay], 0.4)))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if !self.isHovering && !self.vm.isKeptOpen && self.vm.notchState == .open {
+                                    if !self.isHovering && !self.vm.isMouseHovering()
+                                        && !self.vm.isKeptOpen && self.vm.notchState == .open {
                                         self.vm.close()
                                     }
                                 }
@@ -424,7 +433,8 @@ struct ContentView: View {
                     }
                     
                     // Stay open while something needs it (typing, dragging); closes when it ends.
-                    if hoverControlsNotch && self.vm.notchState == .open && !self.vm.isKeptOpen {
+                    if hoverControlsNotch && self.vm.notchState == .open && !self.vm.isKeptOpen
+                        && !self.vm.isMouseHovering() {
                         self.vm.close()
                     }
                 }
