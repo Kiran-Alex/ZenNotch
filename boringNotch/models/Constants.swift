@@ -140,6 +140,12 @@ extension Defaults.Keys {
     /// Focused seconds per day ("yyyy-MM-dd"), for Insights. Kept ~60 days.
     static let focusDaily = Key<[String: Int]>("focusDaily", default: [:])
 
+    // MARK: Weeks and months
+    /// First day of the week: 0 follows the system, otherwise 1 = Sunday … 7 = Saturday.
+    static let weekStartDay = Key<Int>("weekStartDay", default: 0)
+    /// Day of the month a "month" starts on (1–28), e.g. 25 for a pay-cycle month.
+    static let monthStartDay = Key<Int>("monthStartDay", default: 1)
+
     // MARK: Tasks
     /// Manual order of open tasks (reminder ids). Local only: EventKit has no API
     /// for a reminder's position, so this can't sync to the Reminders app.
@@ -178,4 +184,27 @@ extension Defaults.Keys {
     // MARK: Advanced Settings
 
     static let didClearLegacyURLCacheV1 = Key<Bool>("didClearLegacyURLCache_v1", default: false)
+}
+
+extension Calendar {
+    /// The user's calendar with their chosen first day of the week (Settings > General).
+    static var userWeek: Calendar {
+        var cal = Calendar.current
+        let day = Defaults[.weekStartDay]
+        if (1...7).contains(day) { cal.firstWeekday = day }
+        return cal
+    }
+
+    /// The "month" containing `date` when months start on `Defaults[.monthStartDay]`:
+    /// 25 Oct – 24 Nov for a start day of 25. Day 1 is the calendar month.
+    func userMonth(containing date: Date) -> (start: Date, end: Date) {
+        let startDay = min(max(Defaults[.monthStartDay], 1), 28)
+        let day = startOfDay(for: date)
+        var comps = dateComponents([.year, .month], from: day)
+        comps.day = startDay
+        var start = self.date(from: comps) ?? day
+        if start > day { start = self.date(byAdding: .month, value: -1, to: start) ?? start }
+        let end = self.date(byAdding: .month, value: 1, to: start) ?? start
+        return (start, end)
+    }
 }

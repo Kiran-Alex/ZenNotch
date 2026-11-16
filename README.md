@@ -50,7 +50,7 @@ Your tasks are Apple Reminders, so they sync with iCloud, your iPhone and your A
 
 ### 📊 Insights
 - Tasks completed against tasks planned, and focus time.
-- Ranges of 7 days, 30 days, 3 months, a year or all time, compared with the period before.
+- Ranges of this week, this month, 3 months, a year or all time, compared with the period before.
 - Totals for focus time, active days and your best day.
 
 ### 🔔 Task alerts

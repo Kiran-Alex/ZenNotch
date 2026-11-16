@@ -2,7 +2,7 @@
 //  InsightsView.swift
 //  ZenNotch
 //
-//  Insights tab: a summary card for the chosen range (7 days … all time) and a
+//  Insights tab: a summary card for the chosen range (this week … all time) and a
 //  bar chart card (Tasks: completed over planned; Focus: time focused). Bars are
 //  days, weeks, months or years depending on the range. Hovering a bar shows its
 //  numbers in the card's top-right corner.
@@ -250,7 +250,13 @@ struct InsightsView: View {
             }
         }
         guard let first = insights.buckets.first?.start else { return "" }
-        let last = Date()
+        // This week / this month show the whole period; longer ranges end today.
+        var last = Date()
+        if insights.range == .week || insights.range == .month,
+           let end = insights.buckets.last?.end,
+           let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: end) {
+            last = lastDay
+        }
         switch insights.unit {
         case .day, .week:
             let style = Date.FormatStyle().day().month(.abbreviated)
@@ -355,7 +361,10 @@ private struct BarChart: View {
             // X-axis labels, thinned out so they never collide. The newest bar is always labelled.
             HStack(spacing: 0) {
                 ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
-                    let shown = (buckets.count - 1 - index) % labelStride == 0
+                    // A full month is labelled from the 1st (1, 6, 11 …); other ranges from the newest bar.
+                    let shown = unit == .day && buckets.count > 20
+                        ? index % labelStride == 0
+                        : (buckets.count - 1 - index) % labelStride == 0
                     let emphasized = bucket.containsToday || hovered == bucket.start
                     VStack(spacing: cs(1)) {
                         Text(shown ? topLabel(bucket) : " ")

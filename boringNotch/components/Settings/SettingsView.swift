@@ -146,6 +146,36 @@ struct TaskAlertSettings: View {
     }
 }
 
+/// Settings > General > Weeks and months: for people whose week or month doesn't
+/// start on the usual day. Used by Insights and the calendars.
+struct WeekMonthSettings: View {
+    @Default(.weekStartDay) private var weekStart
+    @Default(.monthStartDay) private var monthStart
+
+    private static let weekdays = [
+        (1, "Sunday"), (2, "Monday"), (3, "Tuesday"), (4, "Wednesday"),
+        (5, "Thursday"), (6, "Friday"), (7, "Saturday"),
+    ]
+
+    var body: some View {
+        Section {
+            Picker("Week starts on", selection: $weekStart) {
+                Text("System default").tag(0)
+                ForEach(Self.weekdays, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            Picker("Month starts on day", selection: $monthStart) {
+                ForEach(1...28, id: \.self) { Text($0 == 1 ? "1 (calendar month)" : "\($0)").tag($0) }
+            }
+        } header: {
+            Text("Weeks and months")
+        } footer: {
+            Text("Insights' This week and This month follow these, and so do the date pickers' weekday columns. Month starts of 29–31 aren't offered, since not every month has them.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// Settings > General > Meeting alerts: the card that drops down before an event starts.
 struct MeetingAlertSettings: View {
     @Default(.meetingAlertsEnabled) private var enabled
@@ -247,6 +277,8 @@ struct GeneralSettings: View {
             TaskAlertSettings()
 
             MeetingAlertSettings()
+
+            WeekMonthSettings()
 
             Section {
                 Picker(

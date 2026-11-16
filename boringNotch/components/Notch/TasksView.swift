@@ -1240,7 +1240,7 @@ struct MonthPicker: View {
         self.onToday = onToday
     }
 
-    private let cal = Calendar.current
+    private var cal: Calendar { Calendar.userWeek }
     /// Space between day columns / rows.
     private let gap: CGFloat = 6
     private let rowGap: CGFloat = 4

@@ -4,7 +4,7 @@
 //
 //  Numbers for the Insights tab: completed and planned tasks per day (read from
 //  Reminders, so the full history is there) and focused time (from the local log
-//  the focus timer writes). Any range (7 days … all time) is computed from those
+//  the focus timer writes). Any range (this week … all time) is computed from those
 //  per-day totals, grouped into day, week, month or year bars.
 //
 
@@ -32,8 +32,8 @@ enum InsightsRange: String, CaseIterable, Identifiable {
     /// Chip label.
     var chip: String {
         switch self {
-        case .week: "7D"
-        case .month: "30D"
+        case .week: "Week"
+        case .month: "Month"
         case .quarter: "3M"
         case .year: "1Y"
         case .all: "All"
@@ -43,8 +43,8 @@ enum InsightsRange: String, CaseIterable, Identifiable {
     /// Summary card heading.
     var title: String {
         switch self {
-        case .week: "Last 7 days"
-        case .month: "Last 30 days"
+        case .week: "This week"
+        case .month: "This month"
         case .quarter: "Last 3 months"
         case .year: "Last 12 months"
         case .all: "All time"
@@ -55,7 +55,7 @@ enum InsightsRange: String, CaseIterable, Identifiable {
     var previousPhrase: String {
         switch self {
         case .week: "week"
-        case .month: "30 days"
+        case .month: "month"
         case .quarter: "3 months"
         case .year: "12 months"
         case .all: ""
@@ -111,9 +111,12 @@ final class InsightsManager: ObservableObject {
     }
 
     private let store = EKEventStore()
-    private let cal = Calendar.current
+    /// Follows the first-day-of-week chosen in Settings.
+    private var cal: Calendar { Calendar.userWeek }
     private var observers: [NSObjectProtocol] = []
     private var focusObserver: Defaults.Observation?
+    private var weekStartObserver: Defaults.Observation?
+    private var monthStartObserver: Defaults.Observation?
     private var loadTask: Task<Void, Never>?
 
     // Per-day totals from Reminders (start of day → count).
@@ -133,6 +136,12 @@ final class InsightsManager: ObservableObject {
         ) { [weak self] _ in Task { @MainActor in self?.recompute() } })
         // Focus time is local, so a new focus entry only needs a recompute (no fetch).
         focusObserver = Defaults.observe(.focusDaily) { [weak self] _ in
+            Task { @MainActor in self?.recompute() }
+        }
+        weekStartObserver = Defaults.observe(.weekStartDay) { [weak self] _ in
+            Task { @MainActor in self?.recompute() }
+        }
+        monthStartObserver = Defaults.observe(.monthStartDay) { [weak self] _ in
             Task { @MainActor in self?.recompute() }
         }
         reload()
@@ -204,10 +213,17 @@ final class InsightsManager: ObservableObject {
         #endif
 
         let (start, unit) = window(for: range, today: today, focusDays: focusByDay.keys)
-        let starts = bucketStarts(from: start, until: tomorrow, unit: unit)
+        // This week / this month show every day of the period, so days still to come
+        // are empty bars. Longer ranges end today.
+        let periodEnd: Date = switch range {
+        case .week: cal.dateInterval(of: .weekOfYear, for: today)?.end ?? tomorrow
+        case .month: cal.userMonth(containing: today).end
+        default: tomorrow
+        }
+        let starts = bucketStarts(from: start, until: periodEnd, unit: unit)
 
         var bars: [InsightsBucket] = starts.enumerated().map { i, s in
-            let end = i + 1 < starts.count ? starts[i + 1] : tomorrow
+            let end = i + 1 < starts.count ? starts[i + 1] : periodEnd
             return InsightsBucket(start: s, end: end, unit: unit)
         }
 
@@ -230,9 +246,20 @@ final class InsightsManager: ObservableObject {
         var previous: Int?
         if range != .all {
             let length = cal.dateComponents([.day], from: start, to: tomorrow).day ?? 0
-            if let prevStart = cal.date(byAdding: .day, value: -length, to: start) {
+            var prevStart = cal.date(byAdding: .day, value: -length, to: start)
+            var prevEnd = start
+            // Week and month compare like for like: the same days so far of the
+            // previous week / month (Mon–Wed against last Mon–Wed).
+            if range == .week || range == .month {
+                let component: Calendar.Component = range == .week ? .weekOfYear : .month
+                prevStart = cal.date(byAdding: component, value: -1, to: start)
+                if let ps = prevStart, let same = cal.date(byAdding: .day, value: length, to: ps) {
+                    prevEnd = min(same, start)
+                }
+            }
+            if let prevStart {
                 previous = completedByDay.reduce(0) { sum, entry in
-                    entry.key >= prevStart && entry.key < start ? sum + entry.value : sum
+                    entry.key >= prevStart && entry.key < prevEnd ? sum + entry.value : sum
                 }
             }
         }
@@ -244,22 +271,21 @@ final class InsightsManager: ObservableObject {
         self.planned = bars.reduce(0) { $0 + $1.planned }
         self.focusSeconds = bars.reduce(0) { $0 + $1.focusSeconds }
         self.activeDays = active
-        self.totalDays = cal.dateComponents([.day], from: start, to: tomorrow).day ?? 0
+        self.totalDays = cal.dateComponents([.day], from: start, to: periodEnd).day ?? 0
         self.previousCompleted = previous
     }
 
     /// First day of the range and the bar size.
     private func window(for range: InsightsRange, today: Date,
                         focusDays: Dictionary<Date, Int>.Keys) -> (Date, InsightsBucketUnit) {
-        func daysBack(_ n: Int) -> Date { cal.date(byAdding: .day, value: -n, to: today) ?? today }
         func startOf(_ component: Calendar.Component, _ date: Date) -> Date {
             cal.dateInterval(of: component, for: date)?.start ?? date
         }
         switch range {
         case .week:
-            return (daysBack(6), .day)
+            return (startOf(.weekOfYear, today), .day)
         case .month:
-            return (daysBack(29), .day)
+            return (cal.userMonth(containing: today).start, .day)
         case .quarter:
             let thisWeek = startOf(.weekOfYear, today)
             return (cal.date(byAdding: .weekOfYear, value: -12, to: thisWeek) ?? thisWeek, .week)
