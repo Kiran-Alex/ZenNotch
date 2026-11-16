@@ -3,7 +3,7 @@
 //  ZenNotch
 //
 //  The open notch's main page: paper cards side by side (tasks, focus timer,
-//  notepad, events). Cards share the notch's width by weight, can be turned
+//  sticky note, events). Cards share the notch's width by weight, can be turned
 //  off in Settings > Appearance, and are reordered by dragging the small
 //  handle at the top of each card.
 //
@@ -16,7 +16,7 @@ extension NotchCardKind {
         switch self {
         case .tasks: return PaperPalette.sage
         case .focus: return PaperPalette.lavender
-        case .notes: return PaperPalette.mustard
+        case .notes: return PaperPalette.sticky
         case .events: return PaperPalette.slate
         }
     }
@@ -36,7 +36,6 @@ struct NotchCardsView: View {
     @GestureState private var isHandleDragActive = false
 
     @Environment(\.notchScale) private var notchScale
-    @ObservedObject private var notes = NotesManager.shared
     private var gap: CGFloat { 7 * notchScale }
     private static let rowSpace = "notchCardsRow"
 
@@ -75,7 +74,6 @@ struct NotchCardsView: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .leading)
             .coordinateSpace(name: Self.rowSpace)
             .onPreferenceChange(CardMidKey.self) { cardMids = $0 }
-            .overlay(alignment: .topLeading) { notesPicker(rowWidth: geo.size.width) }
         }
         .onChange(of: isHandleDragActive) { _, active in
             if !active && draggingCard != nil { endDrag() }
@@ -83,49 +81,7 @@ struct NotchCardsView: View {
         .onChange(of: draggingCard) { vm.setKeepOpen("cardDrag", draggingCard != nil) }
         .onDisappear {
             vm.setKeepOpen("cardDrag", false)
-            notes.isPickerOpen = false
         }
-    }
-
-    /// The notepad's date calendar: hangs under the notepad card but is wider than it,
-    /// so it's drawn over the whole row (and kept inside it).
-    @ViewBuilder
-    private func notesPicker(rowWidth: CGFloat) -> some View {
-        if notes.isPickerOpen, let mid = cardMids[.notes] {
-            let cell = 22 * notchScale
-            let width = cell * 7 + 6 * 6 * notchScale + 24 * notchScale
-            let x = min(max(mid - width / 2, 0), max(rowWidth - width, 0))
-            ZStack(alignment: .topLeading) {
-                // Click anywhere else to dismiss.
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { closeNotesPicker() }
-                MonthPicker(
-                    month: Binding(get: { notes.pickerMonth }, set: { notes.pickerMonth = $0 }),
-                    selected: notes.selectedDate,
-                    daysWithTasks: notes.daysWithNotes,
-                    cell: cell,
-                    tint: PaperPalette.mustard,
-                    onPick: { day in
-                        notes.go(to: day)
-                        closeNotesPicker()
-                    },
-                    onToday: {
-                        notes.goToToday()
-                        closeNotesPicker()
-                    }
-                )
-                // Outside a card, so give it the cards' light ink explicitly.
-                .foregroundStyle(PaperPalette.ink)
-                .environment(\.colorScheme, .light)
-                .offset(x: x, y: 58 * notchScale)
-                .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
-            }
-        }
-    }
-
-    private func closeNotesPicker() {
-        withAnimation(.smooth(duration: 0.18)) { notes.isPickerOpen = false }
     }
 
     @ViewBuilder

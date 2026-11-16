@@ -27,7 +27,7 @@ struct NotchHomeView: View {
     }
 
     private var mainContent: some View {
-        // Tasks, focus timer, notepad and events side by side (Settings > Appearance
+        // Tasks, focus timer, sticky note and events side by side (Settings > Appearance
         // turns cards on/off; dragging a card's top handle reorders them).
         // Both pages stay mounted side by side (Home left, Insights right,
         // matching the tab order) and slide as one strip. Only offsets animate,

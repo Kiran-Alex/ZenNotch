@@ -26,7 +26,7 @@ extension EnvironmentValues {
     }
 }
 
-/// Shared header sizes so every card's title matches ("Today's tasks", "Notepad", "Events").
+/// Shared header sizes so every card's title matches ("Today's tasks", "Sticky", "Events").
 enum CardType {
     static let title: CGFloat = 14
     static let titleIcon: CGFloat = 11.5
@@ -40,7 +40,7 @@ enum PaperPalette {
     /// Card colours from the design reference.
     static let sage = Color(red: 0.553, green: 0.690, blue: 0.592)      // tasks
     static let lavender = Color(red: 0.635, green: 0.596, blue: 0.776)  // focus timer
-    static let mustard = Color(red: 0.718, green: 0.675, blue: 0.369)   // notepad
+    static let sticky = Color(red: 0.718, green: 0.675, blue: 0.369)    // sticky note
     static let slate = Color(red: 0.580, green: 0.667, blue: 0.761)     // events
     static let ink = Color(red: 0.11, green: 0.16, blue: 0.13)
     static let inkSecondary = Color(red: 0.11, green: 0.16, blue: 0.13).opacity(0.62)

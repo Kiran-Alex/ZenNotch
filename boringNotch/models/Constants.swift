@@ -33,7 +33,7 @@ enum NotchCardKind: String, CaseIterable, Identifiable, Defaults.Serializable {
         switch self {
         case .tasks: return "Tasks"
         case .focus: return "Focus timer"
-        case .notes: return "Notepad"
+        case .notes: return "Sticky"
         case .events: return "Events"
         }
     }
@@ -42,7 +42,7 @@ enum NotchCardKind: String, CaseIterable, Identifiable, Defaults.Serializable {
         switch self {
         case .tasks: return "checklist"
         case .focus: return "timer"
-        case .notes: return "square.and.pencil"
+        case .notes: return "note.text"
         case .events: return "calendar"
         }
     }

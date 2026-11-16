@@ -1088,7 +1088,6 @@ extension CalendarManager {
 extension NotesManager {
     /// Screenshot fixture. In-memory only; saving is disabled while mocking.
     func applyMock() {
-        selectedDate = Calendar.current.startOfDay(for: Date())
         text = "Ideas for the week:\n- Simplify the onboarding flow\n- Try a 45 min focus block before lunch\n- Send the launch notes to Sam"
     }
 }

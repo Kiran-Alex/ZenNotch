@@ -2,7 +2,7 @@
 //  NotepadView.swift
 //  ZenNotch
 //
-//  Notepad card: a note per day with ‹ › to browse days and a word count.
+//  Sticky card: one note that stays put, with a word count.
 //
 
 import AppKit
@@ -22,27 +22,13 @@ struct NotepadView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: cs(6)) {
-                Image(systemName: "square.and.pencil")
+                Image(systemName: "note.text")
                     .font(.system(size: cs(CardType.titleIcon), weight: .semibold))
-                Text("Notepad")
+                Text("Sticky")
                     .font(.system(size: cs(CardType.title), weight: .semibold))
                     .lineLimit(1)
             }
             .padding(.top, cs(15))
-
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: cs(2)) {
-                    dateButton
-                    Spacer(minLength: cs(4))
-                    dayButtons
-                }
-                // Not enough room: day arrows go under the date.
-                VStack(alignment: .leading, spacing: cs(2)) {
-                    dateButton
-                    dayButtons
-                }
-            }
-            .padding(.top, cs(6))
 
             StitchLine()
                 .padding(.top, cs(8))
@@ -77,35 +63,10 @@ struct NotepadView: View {
         }
     }
 
-    /// Looks like plain text; clicking the date opens a month calendar to jump to any day.
-    private var dateButton: some View {
-        Button {
-            toggleMonthPicker()
-        } label: {
-            Text(dateLabel)
-                .font(.system(size: cs(12), weight: .medium))
-                .foregroundStyle(PaperPalette.inkSecondary)
-                .lineLimit(1)
-        }
-        .buttonStyle(.plain)
-        .help("Pick a day")
-        .accessibilityLabel("Pick a day. Showing \(dateLabel)")
-    }
-
-    private func toggleMonthPicker() {
-        if notes.isPickerOpen { withAnimation(.smooth(duration: 0.18)) { notes.isPickerOpen = false }; return }
-        notes.pickerMonth = notes.selectedDate
-        withAnimation(.smooth(duration: 0.2)) { notes.isPickerOpen = true }
-    }
-
-    private var dateLabel: String {
-        notes.selectedDate.formatted(.dateTime.day().month(.abbreviated).year())
-    }
-
     private var editor: some View {
         ZStack(alignment: .topLeading) {
             if notes.text.isEmpty {
-                Text("Jot something down…")
+                Text("Write anything…")
                     .font(.system(size: cs(CardType.body)))
                     .foregroundStyle(PaperPalette.inkSecondary)
                     .padding(.top, cs(1))
@@ -119,7 +80,7 @@ struct NotepadView: View {
                 .focused($editorFocused)
                 // Line up the editor's text with the placeholder.
                 .padding(.leading, cs(-5))
-                .accessibilityLabel("Note for \(dateLabel)")
+                .accessibilityLabel("Sticky note")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .overlay {
@@ -130,25 +91,6 @@ struct NotepadView: View {
                     .onTapGesture { startEditing() }
             }
         }
-    }
-
-    private var dayButtons: some View {
-        HStack(spacing: cs(2)) {
-            dayButton("chevron.left", label: "Previous day") { notes.shiftDay(by: -1) }
-            dayButton("chevron.right", label: "Next day") { notes.shiftDay(by: 1) }
-        }
-    }
-
-    private func dayButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: cs(11), weight: .bold))
-                .frame(width: cs(17), height: cs(17))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(label)
-        .accessibilityLabel(label)
     }
 
     private func startEditing() {
