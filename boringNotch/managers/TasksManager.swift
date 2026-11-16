@@ -1072,6 +1072,7 @@ extension CalendarManager {
                 isAllDay: false, type: .event(.accepted), calendar: work, participants: [],
                 timeZone: nil, hasRecurrenceRules: false, priority: nil)
         }
+        calendarAuthorizationStatus = .fullAccess
         events = [
             event("e1", "Team standup", at(0), at(0.5)),
             event("e2", "Design review", at(1.5), at(2.5), "Studio B"),
